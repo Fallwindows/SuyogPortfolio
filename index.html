@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Suyog Bhandari</title>
+  <meta name="description" content="Suyog Bhandari: robotics simulation, perception, and computational design.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="nav">
+    <a class="brand" href="#top">SB</a>
+    <nav>
+      <a href="#work">Work</a>
+      <a href="#about">About</a>
+      <a href="#contact">Contact</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <p class="eyebrow">Robotics · Simulation · Computational design</p>
+      <h1>Suyog Bhandari</h1>
+      <p class="lede">I build simulation pipelines and tools that turn physics into usable data: synthetic sensor rigs for SLAM, and optimizers for 3D-printed acoustic materials.</p>
+      <div class="cta">
+        <a class="btn primary" href="#work">See my work</a>
+        <a class="btn" href="https://github.com/Fallwindows" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </section>
+
+    <section id="work" class="section">
+      <h2>Selected work</h2>
+      <div class="grid">
+        <article class="card">
+          <p class="tag">Isaac Sim · ROS 2 · SLAM</p>
+          <h3>Grocery Aisle RGB + LiDAR Simulation</h3>
+          <p>A layered harness for a grocery-store sensor rig. Isaac Sim renders the aisle and publishes RGB, RTX LiDAR, TF and clock over the ROS 2 bridge, while RTAB-Map runs odometry and SLAM against a separate ground-truth stream. A localhost dashboard streams camera, point clouds, maps and evaluation metrics live.</p>
+          <ul class="stack">
+            <li>Isaac Sim 6.1</li><li>ROS 2 Jazzy</li><li>RTAB-Map</li><li>Python</li><li>USD</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <p class="tag">Optimization · Acoustics · Fabrication</p>
+          <h3>metaopt: Acoustic Metamaterial Optimizer</h3>
+          <p>A geometry optimizer for 3D-printed acoustic absorbers. It searches unit-cell geometries for target absorption across a frequency band and exports printable designs.</p>
+          <ul class="stack">
+            <li>Python</li><li>Numerical optimization</li><li>3D printing</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <p class="tag">Web</p>
+          <h3>Deca Website</h3>
+          <p>A website built for the Deca project.</p>
+          <ul class="stack">
+            <li>HTML</li><li>CSS</li><li>JavaScript</li>
+          </ul>
+          <a class="link" href="https://github.com/Fallwindows/decawebsite" target="_blank" rel="noopener">View source →</a>
+        </article>
+      </div>
+    </section>
+
+    <section id="about" class="section about">
+      <h2>About</h2>
+      <p>I like problems where software meets the physical world: making simulated sensors behave like real ones, keeping ground truth honest, and measuring whether a system actually works. I care about reproducible pipelines, clear evaluation, and tools other people can run.</p>
+      <div class="skills">
+        <div><h4>Simulation</h4><p>Isaac Sim, PhysX, USD, synthetic sensors</p></div>
+        <div><h4>Robotics</h4><p>ROS 2, SLAM, TF, LiDAR &amp; RGB pipelines</p></div>
+        <div><h4>Software</h4><p>Python, PowerShell, testing, dashboards</p></div>
+      </div>
+    </section>
+
+    <section id="contact" class="section contact">
+      <h2>Get in touch</h2>
+      <p>Open to collaborations, internships and roles in robotics and simulation.</p>
+      <div class="cta">
+        <a class="btn primary" href="mailto:suyogbhandari09@gmail.com">Email me</a>
+        <a class="btn" href="https://github.com/Fallwindows" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>© <span id="year"></span> Suyog Bhandari</footer>
+  <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+</body>
+</html>
