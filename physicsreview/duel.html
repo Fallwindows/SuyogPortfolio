@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Physics 1v1</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+  <link rel="stylesheet" href="/physicsreview/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/physicsreview/">Physics Review</a>
+    <nav>
+      <a href="/physicsreview/learn.html">Learn</a>
+      <a href="/physicsreview/duel.html" class="active">1v1</a>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <!-- Lobby browser -->
+    <section id="lobbyScreen">
+      <div class="hero" style="padding-bottom:8px">
+        <h1>1v1 Physics Duel</h1>
+        <p>Same problems, same time. First correct answer takes the point, and then you can both open the visual explanation.</p>
+      </div>
+      <div class="duel-grid">
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:10px">
+            <h2 style="font-size:18px">Open lobbies</h2>
+            <span class="muted" style="margin-left:auto;font-size:13px;display:flex;align-items:center;gap:6px">
+              <span class="status-dot" id="netDot"></span><span id="netText">Connecting…</span>
+            </span>
+          </div>
+          <div class="lobby-list" id="lobbyList"></div>
+        </div>
+        <div class="card">
+          <h2 style="font-size:18px">Create a lobby</h2>
+          <div class="form-row" style="flex-direction:column;align-items:stretch">
+            <label>Your name <input type="text" id="nameInput" maxlength="20" placeholder="e.g. Suyog"></label>
+            <label>Units
+              <select id="unitSelect">
+                <option value="1,2">Units 1 + 2</option>
+                <option value="1">Unit 1 · Electrostatics</option>
+                <option value="2">Unit 2 · Circuits</option>
+              </select>
+            </label>
+            <label>Problems
+              <select id="roundSelect">
+                <option>5</option><option selected>10</option><option>15</option><option>20</option>
+              </select>
+            </label>
+            <button class="btn primary" id="createBtn" disabled>Create lobby</button>
+            <button class="btn" id="soloBtn">Practice solo</button>
+          </div>
+          <p class="muted" style="font-size:13px;margin-top:12px">Anyone else on this page can see your lobby and join it.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Waiting room (host) -->
+    <section id="waitScreen" class="hidden">
+      <div class="card" style="max-width:520px;margin:40px auto;text-align:center">
+        <h2 id="waitTitle">Waiting for an opponent…</h2>
+        <p class="muted" id="waitSub" style="margin-top:8px">Your lobby is listed for everyone on the 1v1 page.</p>
+        <button class="btn" id="cancelWait" style="margin-top:18px">Cancel</button>
+      </div>
+    </section>
+
+    <!-- Game -->
+    <section id="gameScreen" class="hidden">
+      <div class="duel-grid">
+        <div>
+          <div class="card scoreboard">
+            <div class="p"><span class="name" id="meName">You</span><span class="st" id="meStatus"></span></div>
+            <div class="score"><span id="meScore">0</span> – <span id="opScore">0</span></div>
+            <div class="p right"><span class="name" id="opName">Opponent</span><span class="st" id="opStatus"></span></div>
+          </div>
+          <div class="card problem" id="problemCard">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <span class="pill" id="roundPill">Problem 1 / 10</span>
+              <span class="pill" id="unitPill"></span>
+              <span class="pill" id="topicPill"></span>
+              <span class="muted mono" id="timer" style="margin-left:auto;font-size:13px"></span>
+            </div>
+            <div class="prompt" id="prompt"></div>
+            <div class="given" id="given"></div>
+            <div id="answerArea"></div>
+            <div id="feedback"></div>
+            <div id="roundActions" class="answer-row"></div>
+            <div class="explain hidden" id="explain"></div>
+          </div>
+        </div>
+        <aside class="card">
+          <h3 style="font-size:15px;margin-bottom:8px">Match</h3>
+          <div class="log" id="log"></div>
+          <div class="chat-row" id="chatRow">
+            <input type="text" id="chatInput" maxlength="140" placeholder="Say something…">
+            <button class="btn small" id="chatSend">Send</button>
+          </div>
+          <button class="btn small" id="leaveBtn" style="margin-top:14px;width:100%">Leave match</button>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js"></script>
+  <script src="/physicsreview/js/pr.js"></script>
+  <script src="/physicsreview/js/problems.js"></script>
+  <script src="/physicsreview/js/workbook.js"></script>
+  <script src="/physicsreview/js/visuals.js"></script>
+  <script>window.LESSONS = [];</script>
+  <script src="/physicsreview/js/learn-electrostatics.js"></script>
+  <script src="/physicsreview/js/learn-circuits.js"></script>
+  <script src="/physicsreview/js/lesson-map.js"></script>
+  <script src="/physicsreview/js/net.js"></script>
+  <script src="/physicsreview/js/duel.js"></script>
+</body>
+</html>
