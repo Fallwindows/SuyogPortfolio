@@ -78,14 +78,17 @@
       opId: opts.opId || null,
       score: { me: 0, op: 0 },
       round: null,
+      history: [],
       opSeen: Date.now(),
       over: false,
     };
     $('log').innerHTML = '';
+    if ($('pastDlg').open) $('pastDlg').close();
     $('meName').textContent = G.meName + ' (you)';
     $('opName').textContent = mode === 'solo' ? 'Solo practice' : G.opName;
     $('chatRow').classList.toggle('hidden', mode === 'solo');
     screen('gameScreen');
+    renderHistory();
     startRound(0);
     if (mode !== 'solo') startHeartbeat();
   }
@@ -131,6 +134,7 @@
     };
     renderProblem();
     setStatus('me', ''); setStatus('op', G.mode === 'solo' ? '' : 'solving…');
+    liveLine();
   }
 
   function cur() { return G.problems[G.r]; }
@@ -139,7 +143,18 @@
 
   // ---------- rendering ----------
   function setStatus(who, text) { $(who === 'me' ? 'meStatus' : 'opStatus').textContent = text; }
-  function scores() { $('meScore').textContent = G.score.me; $('opScore').textContent = G.score.op; }
+  function scores() {
+    $('meScore').textContent = G.score.me;
+    $('opScore').textContent = G.score.op;
+    liveLine();
+  }
+  // Status of the live round, shown in the past-problem viewer's header.
+  function liveLine() {
+    if (!G || !G.round) return;
+    const R = G.round;
+    const state = G.over ? 'match over' : R.winner === undefined ? 'still open' : R.winner === me ? 'you solved it' : R.winner ? `${G.opName} solved it` : 'nobody solved it';
+    $('pastLive').textContent = `Live: problem ${G.r + 1} (${state}) · ${G.score.me}–${G.score.op}`;
+  }
   function log(text) {
     const d = document.createElement('div');
     d.textContent = text;
@@ -209,22 +224,77 @@
     el.append(nx);
   }
 
-  function showExplanation() {
-    const p = cur();
-    const box = $('explain');
+  // Visual + steps + lesson link for one problem. Shared by the live round and the history viewer.
+  function explanationHTML(p) {
     let svg = '';
     try {
       svg = window.PRVisuals ? PRVisuals.render(p.visual.key, p.visual.params) : '';
     } catch (e) { console.error(e); }
-    box.innerHTML = `<h3 style="font-size:16px">Visual explanation</h3>
-      ${svg ? `<div class="visual">${svg}</div>` : ''}
-      <ol>${p.steps.map((s) => `<li>${s}</li>`).join('')}</ol>`;
     const l = lessonFor(p);
-    if (l) box.innerHTML += `<p style="margin-top:12px"><a href="/physicsreview/learn.html#${l.id}" target="_blank" rel="noopener">Review the lesson: ${PR.esc(l.title)} →</a></p>`;
+    return `<h3 style="font-size:16px">Visual explanation</h3>
+      ${svg ? `<div class="visual">${svg}</div>` : ''}
+      <ol>${p.steps.map((s) => `<li>${s}</li>`).join('')}</ol>
+      ${l ? `<p style="margin-top:12px"><a href="/physicsreview/learn.html#${l.id}" target="_blank" rel="noopener">Review the lesson: ${PR.esc(l.title)} →</a></p>` : ''}`;
+  }
+
+  function showExplanation() {
+    const box = $('explain');
+    box.innerHTML = explanationHTML(cur());
     box.classList.remove('hidden');
     PR.math(box);
     box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
+
+  // ---------- past rounds ----------
+  // Finished rounds stay viewable in a dialog layered over the match, so looking back
+  // never touches the live round's inputs, timer, or network state.
+  function renderHistory() {
+    const el = $('history');
+    if (!G || !G.history.length) {
+      el.innerHTML = '<div class="muted" style="font-size:13px">Finished problems show up here. Open any of them without leaving the current one.</div>';
+      return;
+    }
+    el.innerHTML = '';
+    G.history.slice().reverse().forEach((h) => {
+      const b = document.createElement('button');
+      const res = h.winner === me ? 'you ✓' : h.winner ? `${G.opName} ✓` : 'unsolved';
+      b.innerHTML = `<span class="n">#${h.r + 1}</span><span class="t">${PR.esc(h.problem.topic)}</span><span class="res ${h.winner === me ? 'me' : ''}">${PR.esc(res)}</span>`;
+      b.onclick = () => openPast(h);
+      el.append(b);
+    });
+  }
+
+  function openPast(h) {
+    const p = h.problem;
+    let fig = '';
+    if (p.figure && window.PRVisuals) {
+      try { fig = `<div class="visual">${PRVisuals.render(p.figure.key, p.figure.params)}</div>`; } catch (e) {}
+    }
+    const choices = p.type === 'mc'
+      ? '<div class="choices">' + p.choices.map((c, i) => `<button disabled class="${i === p.correct ? 'right' : ''}">${String.fromCharCode(65 + i)}. ${c}</button>`).join('') + '</div>'
+      : '';
+    const who = h.winner === me ? `You solved it in ${h.secs}s.` : h.winner ? `${PR.esc(G.opName)} solved it in ${h.secs}s.` : 'Nobody solved it.';
+    $('pastBody').innerHTML = `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <span class="pill">Problem ${h.r + 1}</span><span class="pill u${p.unit}">Unit ${p.unit}</span>
+        <span class="pill">${PR.esc(p.source ? `${p.topic} · ${p.source}` : p.topic)}</span>
+      </div>
+      <div class="prompt" style="margin-top:10px">${p.prompt}</div>
+      ${fig}
+      ${p.given ? `<div class="given">${p.given}</div>` : ''}
+      ${choices}
+      <div class="feedback info">${who} Answer: <b>${answerText(p)}</b></div>
+      <div class="explain">${explanationHTML(p)}</div>`;
+    const dlg = $('pastDlg');
+    if (!dlg.open) dlg.showModal();
+    $('pastBody').scrollTop = 0;
+    PR.math($('pastBody'));
+  }
+
+  $('pastClose').onclick = () => $('pastDlg').close();
+  $('pastDlg').addEventListener('click', (e) => { if (e.target === $('pastDlg')) $('pastDlg').close(); });
+  // Hand focus back to the answer box so the player can keep typing.
+  $('pastDlg').addEventListener('close', () => { const i = $('ansInput'); if (i && !i.disabled) i.focus(); });
 
   function answerText(p) {
     if (p.type === 'mc') return String.fromCharCode(65 + p.correct);
@@ -331,6 +401,8 @@
     lockInputs();
     const secs = Math.round((Date.now() - R.started) / 1000);
     const p = cur();
+    G.history.push({ r: G.r, problem: p, winner, secs });
+    renderHistory();
     if (winner === me) {
       feedback('good', `You got it in ${secs}s! Answer: <b>${answerText(p)}</b>`);
       setStatus('me', 'solved ✓');
@@ -362,6 +434,7 @@
 
   function finish() {
     G.over = true;
+    liveLine();
     const { me: a, op: b } = G.score;
     const solo = G.mode === 'solo';
     const headline = solo ? `You solved ${a} of ${G.rounds}` : a > b ? 'You win! 🎉' : a < b ? `${PR.esc(G.opName)} wins` : 'Tie game';
