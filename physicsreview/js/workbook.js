@@ -66,6 +66,7 @@ window.PRWorkbook = (function () {
     if (extra) for (var k in extra) o[k] = extra[k];
     return o;
   }
+  function N(label) { return { node: label }; } // labeled point on a wire
   function vis(key, params) { return { key: key, params: params }; }
 
   var k = 8.99e9;
@@ -1303,7 +1304,7 @@ window.PRWorkbook = (function () {
      "I and IV are both 2 Ω (workbook answers A and D)."],
     concept("Equivalent resistance", ["I: 1 + 1 = 2 Ω", "II: 2 + 2 = 4 Ω", "III: 2 ∥ 2 = 1 Ω", "IV: 4 ∥ 4 = 2 Ω"]));
 
-  var fig2 = circuit(6, S(R('4 Ω', 4), Pl(R('3 Ω', 3), R('6 Ω', 6))), { ask: 'V between X and Y (across the parallel pair)?' });
+  var fig2 = circuit(6, S(R('4 Ω', 4), N('X'), Pl(R('3 Ω', 3), R('6 Ω', 6)), N('Y')), { ask: 'V between X and Y?' });
   ci(2, "Series and parallel",
     "An ideal 6 V battery drives a 4 Ω resistor in series with a parallel pair of 3 Ω and 6 Ω. Points X and Y are on either side of the parallel pair. What is the potential difference between X and Y?",
     ["2 V", "3 V", "4 V", "6 V"],
@@ -1311,7 +1312,7 @@ window.PRWorkbook = (function () {
     ["Parallel pair: \\(\\dfrac{3\\cdot6}{3+6} = 2\\) Ω. Total: \\(4 + 2 = 6\\) Ω.",
      "Current from the battery: \\(I = 6/6 = 1\\) A.",
      "Voltage across the pair: \\(V = (1)(2) = 2\\) V (the 4 Ω takes the other 4 V)."],
-    circuit(6, S(R('4 Ω', 4, { I: 1, V: 4 }), Pl(R('3 Ω', 3, { I: 0.667, V: 2 }), R('6 Ω', 6, { I: 0.333, V: 2 }))), { ask: 'V(XY) = 2 V' }),
+    circuit(6, S(R('4 Ω', 4, { I: 1, V: 4 }), N('X'), Pl(R('3 Ω', 3, { I: 0.667, V: 2 }), R('6 Ω', 6, { I: 0.333, V: 2 })), N('Y')), { ask: 'V(XY) = 2 V' }),
     fig2);
 
   ci(3, "Meters",
@@ -1409,7 +1410,7 @@ window.PRWorkbook = (function () {
     ["Charge per second is current. The 1 Ω and 3 Ω are in series, so they carry the same current.",
      "Both branches have the same voltage; the 2 Ω branch has half the resistance (2 vs 4 Ω), so twice the current.",
      "All current entering at X leaves at Y. So the 2 Ω carries more than the 3 Ω."],
-    circuit(12, Pl(S(R('1 Ω', 1, { I: 3, V: 3 }), R('3 Ω', 3, { I: 3, V: 9 })), R('2 Ω', 2, { I: 6, V: 12 })), { ask: 'Example: 12 V across X–Y' }));
+    circuit(12, S(N('X'), Pl(S(R('1 Ω', 1, { I: 3, V: 3 }), R('3 Ω', 3, { I: 3, V: 9 })), R('2 Ω', 2, { I: 6, V: 12 })), N('Y')), { ask: 'Example: 12 V across X–Y' }));
 
   ci(13, "Resistivity",
     "Two circular loops of the same wire have radii \\(b\\) and \\(2b\\). The loop of radius \\(b\\) has resistance \\(R\\). The loop of radius \\(2b\\) has resistance",
@@ -1601,7 +1602,7 @@ window.PRWorkbook = (function () {
      "\\(3P\\)."],
     vis('power', { elements: [{ label: 'R', R: 1, I: 1, V: 1, P: 1 }, { label: '3R', R: 3, I: 1, V: 3, P: 3 }] }));
 
-  var fig33 = circuit(null, Pl(S(Cp('2 µF', 2e-6), Cp('2 µF', 2e-6)), S(Cp('2 µF', 2e-6), Cp('2 µF', 2e-6)), S(Cp('2 µF', 2e-6), Cp('2 µF', 2e-6))), { ask: 'Voltage between X and Y for 6 µC on every capacitor?' });
+  var fig33 = circuit(null, S(N('X'), Pl(S(Cp('2 µF', 2e-6), Cp('2 µF', 2e-6)), S(Cp('2 µF', 2e-6), Cp('2 µF', 2e-6)), S(Cp('2 µF', 2e-6), Cp('2 µF', 2e-6))), N('Y')), { ask: 'Voltage between X and Y for 6 µC on every capacitor?' });
   ci(33, "Capacitors in circuits",
     "Six 2 µF capacitors form three parallel branches between X and Y, each branch being two capacitors in series. What voltage between X and Y puts 6 µC on each plate of every capacitor?",
     ["3 V", "6 V", "9 V", "18 V"],
@@ -1678,7 +1679,7 @@ window.PRWorkbook = (function () {
      "The last one."],
     circuit(12, S(R('4 Ω', 4, { I: 2, V: 8 }), Pl(R('4 Ω', 4, { I: 1, V: 4 }), R('4 Ω', 4, { I: 1, V: 4 })))));
 
-  var fig41 = circuit(12, S(Pl(Cp('3.0 µF', 3e-6), Cp('3.0 µF', 3e-6)), Cp('3.0 µF', 3e-6)), { ask: 'X before the parallel pair, Y between, Z after the single capacitor' });
+  var fig41 = circuit(12, S(N('X'), Pl(Cp('3.0 µF', 3e-6), Cp('3.0 µF', 3e-6)), N('Y'), Cp('3.0 µF', 3e-6), N('Z')), { ask: 'V between Y and Z?' });
   ci(41, "Capacitors in circuits",
     "Three identical 3.0 µF capacitors and a 12 V battery: two capacitors in parallel between points X and Y, then the third capacitor alone between Y and Z. The voltage between Y and Z is",
     ["6 V, because all capacitors have the same voltage", "8 V, because charge is conserved on the wires containing point Y",
@@ -1876,8 +1877,8 @@ window.PRWorkbook = (function () {
     circuit(70, S(R('20 Ω', 20, { I: 2.33, V: 46.7 }), Pl(R('15 Ω', 15, { I: 1.56, V: 23.3 }), R('30 Ω', 30, { I: 0.78, V: 23.3 }))), { ask: 'S closed' }),
     fig5961);
 
-  var fig6263 = circuit(9, Pl(S(R('7 Ω (A→B)', 7), R('2 Ω (B→D)', 2)), S(R('4 Ω (A→C)', 4), R('5 Ω (C→D)', 5))), { ask: 'A = top junction (battery +), D/E = bottom junction' });
-  var vis6263 = circuit(9, Pl(S(R('7 Ω (A→B)', 7, { I: 1, V: 7 }), R('2 Ω (B→D)', 2, { I: 1, V: 2 })), S(R('4 Ω (A→C)', 4, { I: 1, V: 4 }), R('5 Ω (C→D)', 5, { I: 1, V: 5 }))));
+  var fig6263 = circuit(9, S(N('A'), Pl(S(R('7 Ω', 7), N('B'), R('2 Ω', 2)), S(R('4 Ω', 4), N('C'), R('5 Ω', 5))), N('D'), N('E')));
+  var vis6263 = circuit(9, S(N('A'), Pl(S(R('7 Ω', 7, { I: 1, V: 7 }), N('B'), R('2 Ω', 2, { I: 1, V: 2 })), S(R('4 Ω', 4, { I: 1, V: 4 }), N('C'), R('5 Ω', 5, { I: 1, V: 5 }))), N('D'), N('E')));
   ci(62, "Series and parallel",
     "A 9 V battery feeds point A. From A, one path goes through 7 Ω to point B and then 2 Ω to point D; the other path goes through 4 Ω to point C and then 5 Ω to D. D connects through point E back to the battery. How does the current in the 2 Ω compare with the current in the 4 Ω?",
     ["Twice as large", "Half as large", "Equal", "Four times as large"],
@@ -1928,7 +1929,7 @@ window.PRWorkbook = (function () {
     vis('power', { elements: [{ label: 'J', R: 10, I: 0.45, V: 4.5, P: 2.03 }, { label: 'K', R: 10, I: 0.15, V: 1.5, P: 0.225 }, { label: 'L', R: 10, I: 0.15, V: 1.5, P: 0.225 }, { label: 'M', R: 10, I: 0.3, V: 3, P: 0.9 }, { label: 'N', R: 10, I: 0.45, V: 4.5, P: 2.03 }] }),
     fig6566);
 
-  var fig67 = circuit(null, S(R('ammeter'), Bulb('R1'), Pl(Bulb('R2 (A to D)'), S(Bulb('R3 (D to C)'), Bulb('R4 (C to B)')))), { ask: 'A and B are joined by a wire' });
+  var fig67 = circuit(null, S(R('ammeter'), Bulb('R1'), N('D'), Pl(S(Bulb('R2'), N('A')), S(Bulb('R3'), N('C'), Bulb('R4'), N('B')))), { ask: 'A and B are joined by a wire' });
   ci(67, "Bulb brightness",
     "A battery and ideal ammeter feed bulb \\(R_1\\), which leads to point D. From D, bulb \\(R_2\\) goes to point A; also from D, bulb \\(R_3\\) goes to point C and bulb \\(R_4\\) goes from C to point B. A and B are joined by a wire back to the battery. All bulbs are identical. Bulb \\(R_4\\) is removed, breaking the circuit there. Which is true afterward?",
     ["The voltage from B to C increases.", "The power supplied by the battery increases.", "The voltage across \\(R_1\\) increases.", "The ammeter reading is unchanged."],
@@ -1960,7 +1961,7 @@ window.PRWorkbook = (function () {
     circuit(12, S(R('3.0 Ω', 3, { I: 1.2, V: 3.6 }), R('6.0 Ω', 6, { I: 1.2, V: 7.2 })), { r: 1, ask: 'V_T = 12 − 1.2 = 10.8 V' }),
     fig69);
 
-  var fig70 = circuit(null, S(Bulb('1'), Pl(Bulb('2'), S(Bulb('3'), Bulb('4')))), { ask: 'A just before bulb 3, B between bulbs 3 and 4' });
+  var fig70 = circuit(null, S(Bulb('1'), Pl(Bulb('2'), S(N('A'), Bulb('3'), N('B'), Bulb('4')))), { ask: 'A wire is added from A to B' });
   ci(70, "Bulb brightness",
     "Identical bulbs: bulb 1 in the main line, then bulb 2 in parallel with a series pair of bulbs 3 and 4. Point A is just before bulb 3 and point B is between bulbs 3 and 4. A wire is connected from A to B, so bulb 3 goes out. Which bulbs get brighter?",
     ["Only bulb 4", "Only bulbs 1 and 4", "Only bulbs 2 and 4", "Bulbs 1, 2 and 4"],
@@ -1989,7 +1990,7 @@ window.PRWorkbook = (function () {
      "Raising \\(\\rho\\) or thinning it would raise \\(R\\) and dim the bulb."],
     vis('resistivity', { rho: 5.6e-8, L: 0.5, A: 2e-9, R: 14 }));
 
-  var fig74 = circuit(null, Pl(S(Cp('1 µF', 1e-6), Cp('C')), S(R('1 Ω', 1), R('3 Ω', 3))), { ask: 'a between the capacitors, b between the resistors; V(ab) = 0?' });
+  var fig74 = circuit(null, Pl(S(Cp('1 µF', 1e-6), N('a'), Cp('C')), S(R('1 Ω', 1), N('b'), R('3 Ω', 3))), { ask: 'For what C is V(ab) = 0?' });
   ci(74, "RC steady state",
     "Two branches sit across the same battery. Branch 1: a 1 µF capacitor then an unknown capacitor \\(C\\), with point a between them. Branch 2: a 1 Ω resistor then a 3 Ω resistor, with point b between them (the 1 µF and the 1 Ω connect to the same terminal). In steady state, for what \\(C\\) is the potential difference between a and b zero?",
     ["1/3 µF", "2/3 µF", "2 µF", "3 µF"],
@@ -2000,7 +2001,7 @@ window.PRWorkbook = (function () {
     concept("Balanced capacitor–resistor bridge", ["Resistors: V splits 1 : 3", "Series capacitors: V ∝ 1/C", "Need 1/C : 1/1 = 3 → C = 1/3 µF"]),
     fig74);
 
-  var fig75 = circuit(null, S(Bulb('1'), Pl(Bulb('2'), S(Bulb('3'), Bulb('4')))), { ask: 'A on the return wire, B between bulbs 3 and 4' });
+  var fig75 = circuit(null, S(Bulb('1'), Pl(Bulb('2'), S(Bulb('3'), N('B'), Bulb('4'))), N('A')), { ask: 'A wire is added from A (return wire) to B' });
   ci(75, "Bulb brightness",
     "Four identical bulbs of resistance \\(R\\): bulb 1 in the main line, then bulb 2 in parallel with a series pair of bulbs 3 and 4. Point A is on the return wire to the battery, and point B is between bulbs 3 and 4. A wire is connected from A to B (shorting bulb 4). Which bulbs get brighter?",
     ["Bulb 1 only", "Bulb 2 only", "Bulb 3 only", "Bulbs 1 and 3 only"],
@@ -2027,7 +2028,8 @@ window.PRWorkbook = (function () {
     ["The source keeps the total current fixed, so bulb 1 is unchanged.",
      "Bulbs 2 and 3 now split that current: half each, so bulb 2 dims.",
      "\\(V_{CD} = V_{AB} = (I/2)R\\), half of what it was (\\(IR\\) before): it decreases."],
-    concept("Constant-current source", ["Total I fixed → bulb 1 unchanged", "Bulbs 2 and 3 split I", "V(AB) = V(CD) halves"]));
+    concept("Constant-current source", ["Total I fixed → bulb 1 unchanged", "Bulbs 2 and 3 split I", "V(AB) = V(CD) halves"]),
+    circuit(null, S(Bulb('1'), Pl(S(N('A'), Bulb('2'), N('B')), S(N('C'), R('S'), Bulb('3'), N('D')))), { ask: 'Constant-current source; S starts open' }));
 
   ci(78, "Power",
     "Resistors \\(R\\) and \\(4R\\) are in series across voltage \\(V\\). If \\(R\\) dissipates power \\(P\\), the \\(4R\\) resistor dissipates",

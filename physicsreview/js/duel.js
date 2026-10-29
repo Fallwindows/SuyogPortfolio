@@ -129,6 +129,8 @@
       myTries: 0, opTries: 0,
       myGaveUp: false, opGaveUp: false,
       readyMe: false, readyOp: false,
+      revealed: false, // answer shown to me (the loser keeps it hidden until they skip)
+      opDone: false, // opponent has solved or skipped, so "Next" can unlock
       started: Date.now(),
       pendingCorrect: false,
     };
@@ -210,6 +212,14 @@
       el.append(give);
       return;
     }
+    if (!R.revealed) {
+      const sk = document.createElement('button');
+      sk.className = 'btn';
+      sk.textContent = 'Skip · show the answer';
+      sk.onclick = () => reveal(false);
+      el.append(sk);
+      return;
+    }
     const ex = document.createElement('button');
     ex.className = 'btn primary';
     ex.textContent = 'Show visual explanation';
@@ -218,8 +228,8 @@
     const nx = document.createElement('button');
     nx.className = 'btn';
     const last = G.r === G.rounds - 1;
-    nx.textContent = R.readyMe ? 'Waiting for opponent…' : last ? 'See final score' : 'Next problem →';
-    nx.disabled = R.readyMe;
+    nx.textContent = R.readyMe ? 'Waiting for opponent…' : !R.opDone ? `Waiting for ${G.opName} to solve or skip…` : last ? 'See final score' : 'Next problem →';
+    nx.disabled = R.readyMe || !R.opDone;
     nx.onclick = ready;
     el.append(nx);
   }
@@ -302,6 +312,7 @@
   }
 
   function lockInputs() {
+    $('answerArea').classList.remove('waiting');
     $('answerArea').querySelectorAll('button, input').forEach((x) => (x.disabled = true));
     const p = cur();
     if (p.type === 'mc') {
@@ -327,8 +338,18 @@
   function submit(response, btn) {
     const R = G.round;
     const p = cur();
-    if (R.winner !== undefined || R.pendingCorrect) return;
     if (p.type === 'numeric' && !String(response).trim()) return;
+    if (R.winner !== undefined) {
+      // Opponent already won: free practice tries, no point, no fair-shot limit.
+      if (R.revealed) return;
+      const ok = PRProblems.check(p, response);
+      if (btn) { btn.classList.add(ok ? 'right' : 'wrong'); if (!ok) btn.disabled = true; }
+      stat(p, ok);
+      if (ok) reveal(true);
+      else feedback('bad', `Not quite. Keep trying (no point at stake), or skip to see the answer.`);
+      return;
+    }
+    if (R.pendingCorrect) return;
     if (!canShoot()) { feedback('info', `Wait for ${PR.esc(G.opName)} to take a shot — then you can go again.`); return; }
     R.myTries++;
     const ok = PRProblems.check(p, response);
@@ -390,6 +411,7 @@
 
   function applyWinner(winner, hostScore) {
     const R = G.round;
+    const wasCorrect = R.pendingCorrect;
     R.winner = winner;
     R.pendingCorrect = false;
     if (hostScore) {
@@ -398,23 +420,50 @@
     } else if (winner === me) G.score.me++;
     else if (winner && winner === oppId()) G.score.op++;
     scores();
-    lockInputs();
-    const secs = Math.round((Date.now() - R.started) / 1000);
+    R.secs = Math.round((Date.now() - R.started) / 1000);
     const p = cur();
-    G.history.push({ r: G.r, problem: p, winner, secs });
+    if (winner && winner !== me) {
+      setStatus('op', 'solved ✓');
+      log(`#${G.r + 1}: ${G.opName} solved it (${R.secs}s)`);
+      // I answered correctly too but lost the race: I already know the answer.
+      if (wasCorrect) { reveal(true); return; }
+      // Otherwise keep the answer hidden: I can keep trying or skip.
+      R.opDone = true;
+      $('answerArea').classList.remove('waiting');
+      feedback('bad', `${PR.esc(G.opName)} got it first (+1 to them). The answer stays hidden — keep working on it, or skip to see it.`);
+      renderActions();
+      return;
+    }
+    R.revealed = true;
+    // My win: the opponent still has to solve or skip before we move on. Nobody won: both are done.
+    R.opDone = G.mode === 'solo' || !winner;
+    lockInputs();
+    G.history.push({ r: G.r, problem: p, winner, secs: R.secs });
     renderHistory();
     if (winner === me) {
-      feedback('good', `You got it in ${secs}s! Answer: <b>${answerText(p)}</b>`);
+      feedback('good', `You got it in ${R.secs}s! Answer: <b>${answerText(p)}</b>`);
       setStatus('me', 'solved ✓');
-      log(`#${G.r + 1}: you solved it (${secs}s)`);
-    } else if (winner) {
-      feedback('bad', `${PR.esc(G.opName)} got it first. Answer: <b>${answerText(p)}</b>`);
-      setStatus('op', 'solved ✓');
-      log(`#${G.r + 1}: ${G.opName} solved it`);
+      log(`#${G.r + 1}: you solved it (${R.secs}s)`);
     } else {
       feedback('info', `Nobody got this one. Answer: <b>${answerText(p)}</b>`);
       log(`#${G.r + 1}: no one solved it`);
     }
+    renderActions();
+  }
+
+  // The loser of a round sees the answer only once they solve it themselves or skip.
+  function reveal(solved) {
+    const R = G.round;
+    if (R.revealed) return;
+    R.revealed = true;
+    R.opDone = true;
+    PRNet.send({ type: 'skip', r: G.r, solved });
+    lockInputs();
+    const p = cur();
+    G.history.push({ r: G.r, problem: p, winner: R.winner, secs: R.secs });
+    renderHistory();
+    setStatus('me', solved ? 'solved (late)' : 'skipped');
+    feedback(solved ? 'good' : 'info', `${solved ? 'You got it too.' : 'Skipped.'} Answer: <b>${answerText(p)}</b>`);
     renderActions();
   }
 
@@ -533,6 +582,13 @@
         break;
       case 'won':
         if (G.mode === 'guest' && m.r === G.r) applyWinner(m.winner, m.score);
+        break;
+      case 'skip':
+        if (m.r !== G.r) break;
+        R.opDone = true;
+        setStatus('op', m.solved ? 'solved (late)' : 'skipped');
+        log(`#${G.r + 1}: ${G.opName} ${m.solved ? 'solved it too' : 'skipped'}`);
+        if (R.winner !== undefined) renderActions();
         break;
       case 'ready':
         if (m.r !== G.r) break;

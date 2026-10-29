@@ -848,6 +848,7 @@ window.PRVisuals = (function () {
       var g = rs.reduce(function (s, r) { return s + (r === Infinity ? 0 : 1 / r); }, 0);
       return g === 0 ? Infinity : 1 / g;
     }
+    if (n.node) return 0;
     if (n.open) return Infinity;
     if (n.short) return 0;
     var k = elemKind(n);
@@ -861,7 +862,7 @@ window.PRVisuals = (function () {
   }
 
   // element drawn horizontally, entry at (x, y), width EW
-  var EW = 98, EH = 84, GAP = 4, RAIL = 20;
+  var EW = 98, EH = 84, GAP = 4, RAIL = 20, NW = 30;
   function measure(n) {
     if (n && n.type === 'series') {
       var w = 0, h = 0;
@@ -873,6 +874,7 @@ window.PRVisuals = (function () {
       its.forEach(function (x) { var m = measure(x); ww = Math.max(ww, m.w); hh += m.h; });
       return { w: ww + 2 * RAIL, h: hh + GAP * Math.max(0, its.length - 1) };
     }
+    if (n && n.node) return { w: NW, h: EH };
     return { w: EW, h: EH };
   }
   function zigzag(x1, x2, y, c, w) {
@@ -967,6 +969,11 @@ window.PRVisuals = (function () {
         out += drawNet(it, x + RAIL, ys[i], w - 2 * RAIL, ctx);
       });
       return out;
+    }
+    if (n && n.node) { // a labeled point on the wire: dot + letter
+      var nx = x + w / 2;
+      return line(x, y, x + w, y, 'text', 2) + circle(nx, y, 5, { fill: 'accent', stroke: 'surface', sw: 2 }) +
+        text(nx, y - 11, String(n.node), { a: 'middle', c: 'accent', w: 700, sz: 15, halo: true });
     }
     var pad = (w - EW) / 2;
     return line(x, y, x + pad, y, 'text', 2) + drawElem(n || {}, x + pad, y, ctx) + line(x + pad + EW, y, x + w, y, 'text', 2);
