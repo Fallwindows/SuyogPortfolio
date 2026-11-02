@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Physics Review</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/physicsreview/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/physicsreview/">Physics Review</a>
+    <nav>
+      <a href="/physicsreview/learn.html">Learn</a>
+      <a href="/physicsreview/duel.html">1v1</a>
+    </nav>
+  </header>
+  <main class="wrap">
+    <section class="hero">
+      <h1>AP Physics 2 · Units 1 &amp; 2</h1>
+      <p>Electrostatics and circuits, built up from what a charge actually is. Learn it visually, then race a friend.</p>
+    </section>
+    <div class="hub-grid">
+      <a class="card" href="/physicsreview/learn.html">
+        <span class="pill u1">Learn</span>
+        <h2>Visual lessons</h2>
+        <p class="muted">Step by step from charge to Kirchhoff's rules and RC circuits. Every lesson has something to drag, slide, or play with.</p>
+        <p style="margin-top:12px;font-weight:600;color:var(--accent)" id="learnCta">Start at lesson 1 →</p>
+      </a>
+      <a class="card" href="/physicsreview/duel.html">
+        <span class="pill u2">1v1</span>
+        <h2>Physics duel</h2>
+        <p class="muted">Open a lobby or join a friend's. Same problems for both of you; first correct answer wins the point, then you both see the visual explanation.</p>
+        <p style="margin-top:12px;font-weight:600;color:var(--accent)">Find a match →</p>
+      </a>
+    </div>
+    <section class="card" style="margin-top:16px" id="statsCard">
+      <h2 style="font-size:18px">Your progress <span class="muted" style="font-size:13px;font-weight:400">· saved in this browser</span></h2>
+      <div class="stats" id="stats"></div>
+    </section>
+  </main>
+  <script>
+    (function () {
+      let seen = [], stats = {};
+      try { seen = JSON.parse(localStorage.getItem('pr-seen') || '[]'); } catch (e) {}
+      try { stats = JSON.parse(localStorage.getItem('pr-stats') || '{}'); } catch (e) {}
+      if (seen.length) document.getElementById('learnCta').textContent = `${seen.length} lessons opened · keep going →`;
+      const el = document.getElementById('stats');
+      const rows = Object.entries(stats).sort((a, b) => a[1].unit - b[1].unit || b[1].tries - a[1].tries);
+      if (!rows.length) { el.innerHTML = '<p class="muted">Play a 1v1 or solo practice round and your accuracy by topic shows up here.</p>'; return; }
+      const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      el.innerHTML = rows.map(([topic, t]) => {
+        const pct = Math.round((100 * t.right) / Math.max(1, t.tries));
+        return `<div class="row"><span><span class="pill u${t.unit}">U${t.unit}</span> ${esc(topic)}</span><span class="bar"><i style="width:${pct}%"></i></span><span class="muted mono">${t.right}/${t.tries}</span></div>`;
+      }).join('');
+    })();
+  </script>
+</body>
+</html>
