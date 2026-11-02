@@ -82,6 +82,24 @@ h2 {
 .entry h3 a { color: inherit; }
 .entry .meta { font-size: 15px; color: var(--muted); margin: 2px 0 10px; }
 
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 20px;
+}
+/* Portrait video takes two rows; its height follows the row, not its own ratio. */
+.gallery figure.tall { grid-row: span 2; display: flex; flex-direction: column; }
+.gallery .tall video { flex: 1; min-height: 0; aspect-ratio: auto; }
+.gallery img, .gallery video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--rule);
+}
+.gallery figcaption { font-size: 14px; color: var(--muted); margin-top: 4px; }
+
 .skills {
   display: grid;
   grid-template-columns: max-content 1fr;
@@ -102,5 +120,6 @@ footer {
   .intro { padding: 32px 0 56px; }
   .block { grid-template-columns: 1fr; gap: 12px; }
   .skills { grid-template-columns: 1fr; gap: 0; }
+  .gallery { grid-template-columns: 1fr 1fr; gap: 8px; }
   .skills dd + dt { margin-top: 10px; }
 }
