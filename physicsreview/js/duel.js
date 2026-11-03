@@ -32,7 +32,12 @@
   PRNet.on('lobbies', renderLobbies);
 
   function unitLabel(units) {
-    return units.length === 2 ? 'Units 1 + 2' : units[0] === 1 ? 'Unit 1 · Electrostatics' : 'Unit 2 · Circuits';
+    const us = units.slice().sort((a, b) => PR.unitRank(a) - PR.unitRank(b));
+    const course = PR.unitInfo(us[0]).course;
+    if (us.length === 1) return `${course} · ${PR.unitName(us[0])}`;
+    const n = us.map((u) => PR.unitInfo(u).n);
+    const consecutive = n.every((x, i) => !i || x === n[i - 1] + 1);
+    return `${course} · Units ${consecutive && n.length > 2 ? `${n[0]}–${n[n.length - 1]}` : n.join(' + ')}`;
   }
 
   function renderLobbies(list) {
@@ -113,12 +118,15 @@
   function lessonFor(p) {
     const map = window.PR_LESSON_FOR_KEY || {};
     const key = (p.figure && p.figure.key) || (p.visual && p.visual.key);
-    const byTopic = (window.PR_LESSON_FOR_TOPIC || []).find(([re]) => re.test(p.topic || ''));
+    const lessonById = (lid) => (window.LESSONS || []).find((x) => x.id === lid);
+    const sameUnit = (lid) => { const l = lessonById(lid); return !!l && l.unit === p.unit; };
+    // Topic patterns from both courses share one list, so only accept a match in this problem's unit.
+    const byTopic = (window.PR_LESSON_FOR_TOPIC || []).find(([re, lid]) => re.test(p.topic || '') && sameUnit(lid));
     let id = byTopic ? byTopic[1] : map[key];
     // A generic 'concept' card says nothing about the unit, so fall back by unit.
     if (!byTopic && key === 'concept' && p.unit === 2) id = 'u2-emf';
-    if (id && id[1] !== String(p.unit)) id = map[key] && map[key][1] === String(p.unit) ? map[key] : null;
-    const l = id && (window.LESSONS || []).find((x) => x.id === id);
+    if (id && !sameUnit(id)) id = map[key] && sameUnit(map[key]) ? map[key] : null;
+    const l = id && lessonById(id);
     return id ? { id, title: l ? l.title : 'the matching lesson' } : null;
   }
 
@@ -167,7 +175,7 @@
     const p = cur();
     scores();
     $('roundPill').textContent = `Problem ${G.r + 1} / ${G.rounds}`;
-    $('unitPill').textContent = 'Unit ' + p.unit;
+    $('unitPill').textContent = PR.unitShort(p.unit);
     $('unitPill').className = 'pill u' + p.unit;
     $('topicPill').textContent = p.source ? `${p.topic} · ${p.source}` : p.topic;
     let fig = '';
@@ -286,7 +294,7 @@
     const who = h.winner === me ? `You solved it in ${h.secs}s.` : h.winner ? `${PR.esc(G.opName)} solved it in ${h.secs}s.` : 'Nobody solved it.';
     $('pastBody').innerHTML = `
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <span class="pill">Problem ${h.r + 1}</span><span class="pill u${p.unit}">Unit ${p.unit}</span>
+        <span class="pill">Problem ${h.r + 1}</span><span class="pill u${p.unit}">${PR.unitShort(p.unit)}</span>
         <span class="pill">${PR.esc(p.source ? `${p.topic} · ${p.source}` : p.topic)}</span>
       </div>
       <div class="prompt" style="margin-top:10px">${p.prompt}</div>

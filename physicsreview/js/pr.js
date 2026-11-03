@@ -93,5 +93,21 @@ window.PR = (function () {
     return { ctx, w, h };
   }
 
-  return { math, rng, sig, fmt, esc, wireChecks, color, fitCanvas };
+  // Every unit on the site. Physics 2 keeps its original ids (1, 2) so saved stats
+  // and open lobbies stay valid; Physics 1 units are 11–13. `rank` sets display order.
+  const UNITS = {
+    11: { course: 'AP Physics 1', n: 1, name: 'Kinematics', rank: 1 },
+    12: { course: 'AP Physics 1', n: 2, name: 'Force and Translational Dynamics', rank: 2 },
+    13: { course: 'AP Physics 1', n: 3, name: 'Work, Energy, and Power', rank: 3 },
+    1: { course: 'AP Physics 2', n: 1, name: 'Electrostatics', rank: 4 },
+    2: { course: 'AP Physics 2', n: 2, name: 'Circuits', rank: 5 },
+  };
+  const unitInfo = (u) => UNITS[u] || { course: '', n: u, name: '', rank: 99 };
+  // "Unit 1 · Kinematics"
+  const unitName = (u) => { const i = unitInfo(u); return `Unit ${i.n}${i.name ? ' · ' + i.name : ''}`; };
+  // "Physics 1 · Unit 1" (for pills, where the topic sits next to it)
+  const unitShort = (u) => { const i = unitInfo(u); return `${i.course.replace('AP ', '')} · Unit ${i.n}`.replace(/^ · /, ''); };
+  const unitRank = (u) => unitInfo(u).rank;
+
+  return { math, rng, sig, fmt, esc, wireChecks, color, fitCanvas, UNITS, unitInfo, unitName, unitShort, unitRank };
 })();

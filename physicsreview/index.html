@@ -20,14 +20,14 @@
   </header>
   <main class="wrap">
     <section class="hero">
-      <h1>AP Physics 2 · Units 1 &amp; 2</h1>
-      <p>Electrostatics and circuits, built up from what a charge actually is. Learn it visually, then race a friend.</p>
+      <h1>AP Physics 1 &amp; 2</h1>
+      <p>Physics 1 Units 1–3 (kinematics, forces, energy) and Physics 2 Units 1–2 (electrostatics, circuits), built up from first principles. Learn it visually, then race a friend.</p>
     </section>
     <div class="hub-grid">
       <a class="card" href="/physicsreview/learn.html">
         <span class="pill u1">Learn</span>
         <h2>Visual lessons</h2>
-        <p class="muted">Step by step from charge to Kirchhoff's rules and RC circuits. Every lesson has something to drag, slide, or play with.</p>
+        <p class="muted">Step by step from displacement to Newton's laws and energy, then from charge to Kirchhoff's rules and RC circuits. Every lesson has something to drag, slide, or play with.</p>
         <p style="margin-top:12px;font-weight:600;color:var(--accent)" id="learnCta">Start at lesson 1 →</p>
       </a>
       <a class="card" href="/physicsreview/duel.html">
@@ -42,6 +42,7 @@
       <div class="stats" id="stats"></div>
     </section>
   </main>
+  <script src="/physicsreview/js/pr.js"></script>
   <script>
     (function () {
       let seen = [], stats = {};
@@ -49,12 +50,12 @@
       try { stats = JSON.parse(localStorage.getItem('pr-stats') || '{}'); } catch (e) {}
       if (seen.length) document.getElementById('learnCta').textContent = `${seen.length} lessons opened · keep going →`;
       const el = document.getElementById('stats');
-      const rows = Object.entries(stats).sort((a, b) => a[1].unit - b[1].unit || b[1].tries - a[1].tries);
+      const rows = Object.entries(stats).sort((a, b) => PR.unitRank(a[1].unit) - PR.unitRank(b[1].unit) || b[1].tries - a[1].tries);
       if (!rows.length) { el.innerHTML = '<p class="muted">Play a 1v1 or solo practice round and your accuracy by topic shows up here.</p>'; return; }
       const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
       el.innerHTML = rows.map(([topic, t]) => {
         const pct = Math.round((100 * t.right) / Math.max(1, t.tries));
-        return `<div class="row"><span><span class="pill u${t.unit}">U${t.unit}</span> ${esc(topic)}</span><span class="bar"><i style="width:${pct}%"></i></span><span class="muted mono">${t.right}/${t.tries}</span></div>`;
+        return `<div class="row"><span><span class="pill u${t.unit}">P${PR.unitInfo(t.unit).course.slice(-1)} U${PR.unitInfo(t.unit).n}</span> ${esc(topic)}</span><span class="bar"><i style="width:${pct}%"></i></span><span class="muted mono">${t.right}/${t.tries}</span></div>`;
       }).join('');
     })();
   </script>

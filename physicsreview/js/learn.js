@@ -1,10 +1,6 @@
 // Lesson shell: sidebar, hash routing, prev/next, cleanup of running sims.
 (function () {
-  const UNIT_NAMES = {
-    1: 'Unit 1 · Electrostatics',
-    2: 'Unit 2 · Circuits',
-  };
-  const lessons = window.LESSONS.slice().sort((a, b) => a.unit - b.unit || a.order - b.order);
+  const lessons = window.LESSONS.slice().sort((a, b) => PR.unitRank(a.unit) - PR.unitRank(b.unit) || a.order - b.order);
   const side = document.getElementById('sidebar');
   const main = document.getElementById('lesson');
   let cleanup = null;
@@ -22,13 +18,15 @@
   function buildSidebar(activeId) {
     const done = new Set(seen());
     let html = '';
-    let unit = null;
+    let unit = null, course = null;
     let n = 0;
     lessons.forEach((l) => {
-      if (l.unit !== unit) { unit = l.unit; n = 0; html += `<h3>${UNIT_NAMES[unit] || 'Unit ' + unit}</h3>`; }
+      const info = PR.unitInfo(l.unit);
+      if (info.course !== course) { course = info.course; html += `<h2>${PR.esc(course)}</h2>`; }
+      if (l.unit !== unit) { unit = l.unit; n = 0; html += `<h3>${PR.unitName(unit)}</h3>`; }
       n++;
       const cls = [l.id === activeId ? 'active' : '', done.has(l.id) ? 'done' : ''].join(' ');
-      html += `<a href="#${l.id}" class="${cls}"><span class="n">${l.unit}.${n}</span><span>${PR.esc(l.title)}</span></a>`;
+      html += `<a href="#${l.id}" class="${cls}"><span class="n">${info.n}.${n}</span><span>${PR.esc(l.title)}</span></a>`;
     });
     side.innerHTML = html;
   }
@@ -42,7 +40,7 @@
     cleanup = null;
     main.innerHTML = '';
     const head = document.createElement('div');
-    head.innerHTML = `<div class="kicker">${UNIT_NAMES[l.unit]}</div><h1>${l.title}</h1>`;
+    head.innerHTML = `<div class="kicker">${PR.unitInfo(l.unit).course} · ${PR.unitName(l.unit)}</div><h1>${l.title}</h1>`;
     const body = document.createElement('div');
     main.append(head, body);
     try { cleanup = l.render(body); } catch (e) { body.innerHTML = `<p class="feedback bad">This lesson failed to load: ${PR.esc(e.message)}</p>`; console.error(e); }

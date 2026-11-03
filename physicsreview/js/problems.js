@@ -1692,5 +1692,9 @@ window.PRProblems = (function () {
     return Math.abs(x - a) <= tol * Math.abs(a);
   }
 
-  return { generators: gens, generate, check, parseNum };
+  // Formatting + multiple-choice helpers, shared with the Physics 1 banks (duel-*.js),
+  // which push their generators onto `generators`.
+  const helpers = { M, X, Q, B, rnd, sgn, giv, tx, mc };
+
+  return { generators: gens, generate, check, parseNum, helpers };
 })();

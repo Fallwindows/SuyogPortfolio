@@ -1307,5 +1307,17 @@ window.PRVisuals = (function () {
     return placeholder(key);
   }
 
-  return { render: render, keys: Object.keys(R), fmt: { num: num, si: si } };
+  // Other files (the Physics 1 duel banks) add their own visual keys here and
+  // reuse the same SVG primitives so every figure looks alike.
+  function register(map) {
+    for (var k in map) if (Object.prototype.hasOwnProperty.call(map, k)) R[k] = map[k];
+  }
+  var h = {
+    esc: esc, isNum: isNum, clamp: clamp, r1: r1, arr: arr, sup: sup, sub: sub, minus: minus, num: num, si: si,
+    fm: fm, fN: fN, fJ: fJ, fW: fW, svg: svg, line: line, dline: dline, path: path, head: head, arrow: arrow,
+    text: text, rect: rect, circle: circle, dim: dim, bg: bg, title: title, wrap: wrap, textLines: textLines,
+    concept: concept
+  };
+
+  return { render: render, register: register, h: h, get keys() { return Object.keys(R); }, fmt: { num: num, si: si } };
 })();

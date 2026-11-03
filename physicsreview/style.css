@@ -300,3 +300,18 @@ dialog.past::backdrop { background: rgba(0,0,0,.35); }
 .past-body { padding: 4px 18px 20px; overflow-y: auto; margin-top: 0; }
 .past-body .visual { background: var(--surface-2); border-radius: 10px; padding: 10px; margin: 12px 0; }
 .past-body .visual svg { display: block; width: 100%; height: auto; max-height: 360px; }
+
+/* course headings in the lesson sidebar */
+.sidebar h2 { font-size: 15px; letter-spacing: -.01em; margin: 26px 10px 2px; padding-top: 14px; border-top: 1px solid var(--border); }
+.sidebar h2:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.sidebar h2 + h3 { margin-top: 8px; }
+
+/* AP Physics 1 unit pills */
+.pill.u11 { background: #dcfce7; color: #166534; }
+.pill.u12 { background: #ede9fe; color: #5b21b6; }
+.pill.u13 { background: #fef3c7; color: #92400e; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .pill.u11 { background: #14321f; color: #86efac; }
+  :root:not([data-theme="light"]) .pill.u12 { background: #2a1f4a; color: #c4b5fd; }
+  :root:not([data-theme="light"]) .pill.u13 { background: #3a2a0c; color: #fcd34d; }
+}
