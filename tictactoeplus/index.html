@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Tic Tac Toe Plus</title>
+<style>
+:root{--bg:#f6f4ef;--fg:#1d1d1f;--muted:#6b6b70;--cell:#fff;--line:#d8d4ca;--x:#d9480f;--o:#1971c2;--t:#2b8a3e;--win:#ffe066}
+@media (prefers-color-scheme:dark){:root{--bg:#16171a;--fg:#ececef;--muted:#9a9aa2;--cell:#22242a;--line:#34363d;--win:#665c1f}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;padding:16px}
+h1{margin:4px 0 2px;font-size:26px}
+.rules{margin:4px 0 12px;padding:0;list-style:none;font-size:15px;color:var(--muted);text-align:center;max-width:480px}
+.rules li{margin:3px 0}.rules b{color:var(--fg)}
+#seats{min-height:42px;align-items:center}
+#status{font-weight:600;height:24px;margin:6px 0 10px;text-align:center;white-space:nowrap}
+#board{display:grid;gap:6px;width:min(92vw,420px);height:min(92vw,420px);grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(4,minmax(0,1fr))}
+.c{background:var(--cell);border:1px solid var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:clamp(28px,12vw,64px);line-height:1;overflow:hidden;min-width:0;min-height:0;cursor:pointer;user-select:none}
+.c.X{color:var(--x)}.c.O{color:var(--o)}.c.T{color:var(--t)}
+.c.win{background:var(--win)}.c.last{outline:2px solid var(--muted);outline-offset:-3px}
+.bar{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap;justify-content:center}
+button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--cell);color:var(--fg);cursor:pointer}
+button.on{border-color:var(--fg);box-shadow:inset 0 0 0 1px var(--fg)}
+button:disabled{opacity:.4;cursor:default}
+#nameRow input{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--cell);color:var(--fg);width:200px}
+#share{font-size:13px;color:var(--muted);word-break:break-all;text-align:center;max-width:480px}
+#net{font-size:12px;color:var(--muted)}
+.home{align-self:flex-start;font-size:14px;color:var(--muted);text-decoration:none}
+</style></head><body>
+<a class="home" href="/">← suyogbhandari.com</a>
+<h1>Tic Tac Toe Plus</h1>
+<ul class="rules">
+  <li><b>Get 4 in a row</b> to win.</li>
+  <li>You get one <b>▲ triangle</b> each turn.</li>
+  <li>Place the ▲ first, then your piece — or just place your piece.</li>
+  <li>A ▲ counts for <b>both</b> players.</li>
+</ul>
+<div class="bar" id="nameRow"><input id="name" maxlength="20" placeholder="Enter your name"></div>
+<div class="bar" id="seats"></div>
+<div id="status">Connecting…</div>
+<div class="bar" id="tools">
+  <button id="bPiece" class="on">Your piece</button>
+  <button id="bTri">▲ Triangle</button>
+  <button id="bReset">New game</button>
+</div>
+<div id="board"></div>
+<p id="share"></p>
+<div id="net"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js"></script>
+<script>
+// The site is static, so rooms work like Physics Review's 1v1: browsers share the game
+// through a public MQTT broker over WebSockets. Each room's latest state is a retained
+// message, so a reload or a late joiner gets the current board straight away.
+const BASE = 'suyogbhandari-tictactoeplus/v1';
+const BROKERS = ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt'];
+const N = 4, WIN = 4, RESET_PASSWORD = '9/15/2009';
+
+const qs = new URLSearchParams(location.search);
+let room = (qs.get('room') || '').replace(/[^a-z0-9]/gi, '').slice(0, 16);
+if (!room) { room = Math.random().toString(36).slice(2, 8); history.replaceState(null, '', '?room=' + room); }
+let token;
+try { token = localStorage.getItem('tttp-token'); } catch {}
+if (!token) { token = Math.random().toString(36).slice(2) + Date.now().toString(36); try { localStorage.setItem('tttp-token', token); } catch {} }
+const topic = `${BASE}/room/${room}`;
+const $ = id => document.getElementById(id);
+let S = null, mode = 'piece', err = '', client = null;
+$('share').textContent = 'Send this link to your friend: ' + location.href;
+
+// ---------- rules (same as the original server) ----------
+function newGame(prev) {
+  // the last winner goes first; after a draw (or an unfinished game) the other player starts
+  const p = prev || { owners: {}, names: {}, starter: 'O' };
+  const starter = p.winner === 'X' || p.winner === 'O' ? p.winner : p.starter === 'X' ? 'O' : 'X';
+  return { v: p.v || 0, owners: p.owners, names: p.names, starter, board: Array(N * N).fill(null), turn: starter,
+    tri: { X: 1, O: 1 }, winner: null, winLine: [], last: null };
+}
+function findWin(board, p) {
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]]) {
+    const line = []; let own = 0;
+    for (let k = 0; k < WIN; k++) {
+      const rr = r + dr * k, cc = c + dc * k;
+      if (rr < 0 || rr >= N || cc < 0 || cc >= N) break;
+      const v = board[rr * N + cc];
+      if (v !== p && v !== 'T') break;
+      if (v === p) own++;
+      line.push(rr * N + cc);
+    }
+    // triangles count for both sides, but a line needs at least one of your own pieces
+    if (line.length === WIN && own > 0) return line;
+  }
+  return null;
+}
+function checkEnd(s, mover) {
+  for (const p of [mover, mover === 'X' ? 'O' : 'X']) {
+    const line = findWin(s.board, p);
+    if (line) { s.winner = p; s.winLine = line; return true; }
+  }
+  if (s.board.every(v => v)) { s.winner = 'draw'; return true; }
+  return false;
+}
+const you = () => S && (S.owners.X === token ? 'X' : S.owners.O === token ? 'O' : null);
+
+// ---------- network ----------
+function publish(next) {
+  next.v = (S ? S.v : 0) + 1; next.ts = Date.now();
+  S = next; render();
+  if (client && client.connected) client.publish(topic, JSON.stringify(S), { retain: true, qos: 1 });
+  else err = 'Offline — reconnecting…';
+}
+function connect(i = 0) {
+  $('net').textContent = 'Connecting to the game relay…';
+  client = mqtt.connect(BROKERS[i], { clientId: 'ttt_' + token.slice(0, 10) + Math.random().toString(36).slice(2, 6), clean: true, connectTimeout: 8000, reconnectPeriod: 3000, keepalive: 20 });
+  let ever = false;
+  client.on('connect', () => {
+    ever = true; $('net').textContent = 'Online';
+    client.subscribe(topic, { qos: 1 });
+    // an empty room has no retained state; start a fresh game if nothing arrives
+    setTimeout(() => { if (!S) { S = newGame(); render(); } }, 1500);
+  });
+  client.on('offline', () => { $('net').textContent = 'Offline — reconnecting…'; });
+  client.on('close', () => { if (!ever && i < BROKERS.length - 1) { client.end(true); connect(i + 1); } });
+  client.on('message', (t, buf) => {
+    let m; try { m = JSON.parse(buf.toString()); } catch { return; }
+    if (!m || !Array.isArray(m.board)) return;
+    if (!S || m.v > S.v || (m.v === S.v && m.ts > (S.ts || 0))) { S = m; render(); }
+  });
+}
+
+// ---------- UI ----------
+function render() {
+  if (!S) return;
+  const b = $('board');
+  if (b.children.length !== N * N) {
+    b.innerHTML = '';
+    for (let i = 0; i < N * N; i++) { const d = document.createElement('div'); d.className = 'c'; d.onclick = () => clickCell(i); b.appendChild(d); }
+  }
+  S.board.forEach((v, i) => {
+    const d = b.children[i];
+    d.textContent = v === 'T' ? '▲' : (v || '');
+    d.className = 'c ' + (v || '') + (S.winLine.includes(i) ? ' win' : '') + (S.last === i ? ' last' : '');
+  });
+  const me = you(), seated = { X: !!S.owners.X, O: !!S.owners.O };
+  const nm = s => S.names[s] ? `${S.names[s]} (${s})` : s;
+  const seats = $('seats'); seats.innerHTML = '';
+  $('nameRow').style.display = me ? 'none' : '';
+  if (me) seats.textContent = `You are ${nm(me)}` + (seated.X && seated.O ? ` vs ${nm(me === 'X' ? 'O' : 'X')}` : '');
+  else for (const s of ['X', 'O']) {
+    const btn = document.createElement('button');
+    btn.textContent = seated[s] ? `${nm(s)} joined` : `Play as ${s}`;
+    btn.disabled = seated[s];
+    btn.onclick = () => join(s);
+    seats.appendChild(btn);
+  }
+  const myTurn = me && me === S.turn && !S.winner;
+  const hasTri = me && S.tri[me] > 0;
+  if (!hasTri && mode === 'tri') mode = 'piece';
+  $('bTri').disabled = !myTurn || !hasTri;
+  $('bPiece').className = mode === 'piece' ? 'on' : '';
+  $('bTri').className = mode === 'tri' ? 'on' : '';
+  $('bReset').disabled = !me;
+  let st;
+  if (S.winner === 'draw') st = 'Draw!';
+  else if (S.winner) st = S.winner === me ? 'You win! 🎉' : `${nm(S.winner)} wins!`;
+  else if (!seated.X || !seated.O) st = me ? 'Waiting for opponent…' : 'Pick a side';
+  else if (myTurn) st = hasTri ? 'Your turn — ▲ available' : 'Your turn — place your piece';
+  else st = me ? `${nm(S.turn)}'s turn` : `Spectating — ${nm(S.turn)}'s turn`;
+  $('status').textContent = err ? `${st} · ${err}` : st;
+  err = '';
+}
+function join(seat) {
+  const name = $('name').value.trim();
+  if (!name) { err = 'Enter your name first'; $('name').focus(); return render(); }
+  if (S.owners[seat]) { err = 'Seat taken'; return render(); }
+  try { localStorage.setItem('tttp-name', name); } catch {}
+  const next = structuredClone(S);
+  next.owners[seat] = token; next.names[seat] = name.slice(0, 20);
+  publish(next);
+}
+function clickCell(i) {
+  const me = you();
+  if (!S || !me || S.board[i] || S.winner || me !== S.turn) return;
+  const next = structuredClone(S);
+  if (mode === 'tri') {
+    if (!next.tri[me]) return;
+    next.board[i] = 'T'; next.tri[me] = 0; next.last = i;
+    checkEnd(next, me); // you keep your turn to place your piece
+  } else {
+    next.board[i] = me; next.last = i;
+    if (!checkEnd(next, me)) { next.turn = me === 'X' ? 'O' : 'X'; next.tri[next.turn] = 1; } // new turn: refill triangle, max 1
+  }
+  mode = 'piece';
+  publish(next);
+}
+$('bPiece').onclick = () => { mode = 'piece'; render(); };
+$('bTri').onclick = () => { mode = 'tri'; render(); };
+$('bReset').onclick = () => {
+  if (!S || !you()) return;
+  if (!S.winner) {
+    const password = prompt('The game is not finished yet. Enter the password to restart:');
+    if (password === null) return;
+    if (password !== RESET_PASSWORD) { err = 'Wrong password'; return render(); }
+  }
+  publish(newGame(S));
+};
+try { $('name').value = localStorage.getItem('tttp-name') || ''; } catch {}
+connect();
+</script>
+</body></html>
