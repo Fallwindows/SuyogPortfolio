@@ -81,6 +81,10 @@ h2 {
 .entry h3 { font-size: 20px; font-weight: 600; line-height: 1.35; }
 .entry h3 a { color: inherit; }
 .entry .meta { font-size: 15px; color: var(--muted); margin: 2px 0 10px; }
+.entry h4 { font-size: 16px; font-weight: 600; margin: 24px 0 6px; }
+.entry p + p { margin-top: 12px; }
+.entry .steps { margin: 8px 0 0 1.4em; }
+.entry .steps li + li { margin-top: 4px; }
 
 .gallery {
   display: grid;

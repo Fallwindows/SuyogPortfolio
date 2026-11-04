@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Experience · Suyog Bhandari</title>
+  <meta name="description" content="Suyog Bhandari's professional work: proactive AI systems at Persona, database sync at Pren, and acoustic metamaterial software.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="name" href="/">Suyog Bhandari</a>
+    <nav>
+      <a href="/#work">Work</a>
+      <a href="/work" aria-current="page">Experience</a>
+      <a href="mailto:suyogbhandari09@gmail.com">Email</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="intro">
+      <h1>Where I've worked, and the problems I solved there.</h1>
+      <p>Each entry describes the specific problem, how I solved it, and why it was more interesting than it first looked.</p>
+    </section>
+
+    <section class="block">
+      <h2>Persona</h2>
+      <div class="block-body">
+        <article class="entry">
+          <h3>A proactive AI assistant</h3>
+          <p class="meta">With Zach Yadegari · LLM agents, background jobs, iOS</p>
+          <p>Persona is an iPhone assistant meant to act before you ask. It connects to Gmail, Calendar and Drive, keeps a model of who you are, and steps in when something matters. I built two of the systems behind that: the one that decides what deserves attention, and the one that runs requests that play out over time.</p>
+
+          <h4>The problem</h4>
+          <p>An assistant that watches your inbox can fail in two easy ways. It can surface everything and become one more source of notifications, or it can surface too little and be useless. The text of a message alone doesn't tell you which: "are you free later?" is worth acting on from a friend and is noise from a store.</p>
+
+          <h4>Importance system</h4>
+          <p>Everything that reaches Persona without the user asking, like an incoming email, goes through a triage step. It gathers the context that matters for that event: what Persona knows about the user, their history with the sender, and their recent conversations. Then it makes one of three decisions. It can ignore the event, notify the user, or start a <em>deep task</em>, a background agent run that does the work, such as checking the calendar and drafting a reply.</p>
+          <p>Every decision is stored with its reasons, and an admin view shows each event, the context that went in, and why it was ignored or acted on. In testing, a car dealership's promotion was ignored. A friend asking to hang out on the day of a family birthday became a drafted reply that offered times around the birthday errand.</p>
+
+          <h4>Polling system</h4>
+          <p>Some requests are about time rather than a single answer: "watch BTC-USD every minute for three minutes," or "call me five minutes before every meeting." I built the piece that turns a plain-English request like that into a scheduled background job, with an interval, a stop condition and a data check on every tick. The job keeps running after the user leaves the app. When the window closes, it combines the samples into one answer, such as the average price over those three minutes, and posts it back into the chat instead of pinging on every check.</p>
+
+          <h4>Why it was interesting</h4>
+          <p>The hard part wasn't calling a model. It was judgment and time. Triage runs on every email, so it has to be cheap, but it also needs enough context to get the call right. It also has to explain itself, because when software acts on your behalf, you need to see why. Polling meant moving work off the phone into jobs that outlive the conversation and finish on their own.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>Pren</h2>
+      <div class="block-body">
+        <article class="entry">
+          <h3>Accounting startup</h3>
+          <p class="meta">Since shut down · databases, AI-assisted development</p>
+          <p>Pren built accounting software, and the team wanted Claude to do much of the building. My biggest fix was to how that agent-written code talked to the database.</p>
+
+          <h4>The problem</h4>
+          <p>One of the rules the agent followed was "reuse existing functions," a sensible rule for keeping a codebase small. When the first version of the app was built, the agent wrote a function that pulled everything from the database. As features were added, it did what the rule said and reused that function, so each new addition pulled the whole database again. No single change looked wrong, but together they sent database egress, the data read out of the database, far past our limit.</p>
+
+          <h4>The fix</h4>
+          <p>I designed a sync that only pulls new information:</p>
+          <ol class="steps">
+            <li>The app first fetches a single number: the database's version.</li>
+            <li>If it matches the version the app already has, nothing else is fetched.</li>
+            <li>If it's higher, the app checks the version of each individual data store.</li>
+            <li>For the stores that changed, it runs the same check again and pulls only what it needs.</li>
+          </ol>
+
+          <h4>Why it was interesting</h4>
+          <p>The bug didn't live in any one line. It came from a good rule meeting an expensive building block, and the agent kept multiplying the cost because it was being consistent. When code is written by an agent that follows rules, the functions it reaches for first need to be cheap, because they will be reused everywhere.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>Independent</h2>
+      <div class="block-body">
+        <article class="entry">
+          <h3>Acoustic metamaterial optimizer</h3>
+          <p class="meta">My own software · Python, numerical optimization, fabrication</p>
+          <p>Sound is a pressure wave, and a material's internal geometry decides what happens to that wave: it can trap it, cancel it, or steer it somewhere else. My software generates material shapes that manipulate those waves to block sound. Each shape is generated for a specific manufacturing method, so the designs it produces can actually be made.</p>
+          <p>Blocking isn't the only option. Redirecting the sound can be more effective than simply stopping it, and the software explores those designs too.</p>
+
+          <h4>Why it matters</h4>
+          <p>Quieter homes are the obvious use. The sharper one is defense, where drones and other equipment need to go unheard. In both, the physics and the manufacturing pull against each other. The best shape on paper is worthless if it can't be built, so the manufacturing method shapes the search from the start.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer>Suyog Bhandari, <span id="year"></span></footer>
+  <script src="/js/year.js"></script>
+</body>
+</html>
