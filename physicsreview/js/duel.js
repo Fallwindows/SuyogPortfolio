@@ -1,7 +1,8 @@
 // 1v1 duel: lobby browser, match flow, scoring, visual explanations.
 // The host is authoritative for who won each round; both sides generate the same
 // problems locally from the shared seed (PRProblems.generate).
-(function () {
+// Waits for PRNet's signing key, since `me` is that key's fingerprint.
+PRNet.ready.then(function () {
   const $ = (id) => document.getElementById(id);
   const me = PRNet.myId;
 
@@ -40,9 +41,16 @@
     return `${course} · Units ${consecutive && n.length > 2 ? `${n[0]}–${n[n.length - 1]}` : n.join(' + ')}`;
   }
 
+  // Everything from the network is checked before use: names are plain short text, units are
+  // known unit ids, rounds and seeds are bounded integers.
+  const cleanName = (n) => (typeof n === 'string' ? n.replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩]/g, '').trim().slice(0, 20) : '') || 'Opponent';
+  const validUnits = (u) => Array.isArray(u) && u.length >= 1 && u.length <= 10 && u.every((x) => Number.isInteger(x) && PR.UNITS[x]);
+  const validRounds = (r) => Number.isInteger(r) && r >= 1 && r <= 50;
+  const validLobby = (l) => l && typeof l.hostName === 'string' && validUnits(l.units) && validRounds(l.rounds) && typeof l.created === 'number';
+
   function renderLobbies(list) {
     const el = $('lobbyList');
-    const others = list.filter((l) => l.hostId !== me);
+    const others = list.filter((l) => l.hostId !== me && validLobby(l));
     if (!online) { el.innerHTML = '<div class="empty">Connecting to the lobby server…</div>'; return; }
     if (!others.length) {
       el.innerHTML = '<div class="empty">No open lobbies right now. Create one, and it will show up here for anyone else on this page.</div>';
@@ -54,8 +62,8 @@
       row.className = 'lobby-item';
       const age = Math.max(0, Math.round((Date.now() - l.created) / 60000));
       row.innerHTML = `<span class="status-dot on"></span>
-        <div class="meta"><b>${PR.esc(l.hostName)}'s lobby</b>
-        <span>${unitLabel(l.units)} · ${l.rounds} problems · ${age ? age + ' min ago' : 'just now'}</span></div>`;
+        <div class="meta"><b>${PR.esc(cleanName(l.hostName))}'s lobby</b>
+        <span>${PR.esc(unitLabel(l.units))} · ${Number(l.rounds)} problems · ${age ? age + ' min ago' : 'just now'}</span></div>`;
       const btn = document.createElement('button');
       btn.className = 'btn primary small';
       btn.textContent = 'Join';
@@ -423,8 +431,8 @@
     R.winner = winner;
     R.pendingCorrect = false;
     if (hostScore) {
-      G.score.me = hostScore[me] || 0;
-      G.score.op = hostScore[G.opId] || 0;
+      G.score.me = Math.max(0, Math.floor(Number(hostScore[me]) || 0));
+      G.score.op = Math.max(0, Math.floor(Number(hostScore[G.opId]) || 0));
     } else if (winner === me) G.score.me++;
     else if (winner && winner === oppId()) G.score.op++;
     scores();
@@ -530,27 +538,28 @@
   PRNet.on('game', (m) => {
     // Host waiting for someone to join.
     if (m.type === 'join' && hosting && !G) {
-      const opts = { seed: randSeed(), units: hosting.units, rounds: hosting.rounds, meName: hosting.hostName, opName: m.name, opId: m.from, lobbyId: me };
+      const opts = { seed: randSeed(), units: hosting.units, rounds: hosting.rounds, meName: hosting.hostName, opName: cleanName(m.name), opId: m.from, lobbyId: me };
       PRNet.closeLobby(); // stop advertising, but keep the game topic
       PRNet.joinGame(me);
       PRNet.send({ type: 'start', to: m.from, seed: opts.seed, units: opts.units, rounds: opts.rounds, hostName: hosting.hostName });
       hosting = null;
       newGame('host', opts);
-      log(`${m.name} joined`);
+      log(`${opts.opName} joined`);
       return;
     }
     if (m.type === 'join' && G && m.from !== G.opId) { PRNet.send({ type: 'full', to: m.from }); return; }
 
     // Guest waiting for the host's start.
-    if (m.type === 'start' && m.to === me) {
+    // only the host of the lobby we joined may start our match, with sane settings
+    if (m.type === 'start' && m.to === me && m.from === (joiningLobby || (G && G.lobbyId)) && Number.isInteger(m.seed) && validUnits(m.units) && validRounds(m.rounds)) {
       clearTimeout(joinTimeout);
-      const opts = { seed: m.seed, units: m.units, rounds: m.rounds, meName: myName(), opName: m.hostName, opId: m.from, lobbyId: joiningLobby || (G && G.lobbyId) };
+      const opts = { seed: m.seed, units: m.units, rounds: m.rounds, meName: myName(), opName: cleanName(m.hostName), opId: m.from, lobbyId: joiningLobby || (G && G.lobbyId) };
       joiningLobby = null;
       newGame('guest', opts);
-      log(`Joined ${m.hostName}'s lobby`);
+      log(`Joined ${opts.opName}'s lobby`);
       return;
     }
-    if (m.type === 'full' && m.to === me) {
+    if (m.type === 'full' && m.to === me && m.from === joiningLobby) {
       clearTimeout(joinTimeout);
       joiningLobby = null;
       PRNet.leaveGame();
@@ -564,7 +573,7 @@
     const R = G.round;
     switch (m.type) {
       case 'ping': break;
-      case 'chat': log(`${G.opName}: ${m.text}`); break;
+      case 'chat': if (typeof m.text === 'string') log(`${G.opName}: ${m.text.slice(0, 140)}`); break;
       case 'leave':
         log(`${G.opName} left the match`);
         setStatus('op', 'left');
@@ -589,7 +598,7 @@
         if (G.mode === 'host' && R.myGaveUp) endRound(null);
         break;
       case 'won':
-        if (G.mode === 'guest' && m.r === G.r) applyWinner(m.winner, m.score);
+        if (G.mode === 'guest' && m.r === G.r) applyWinner([me, G.opId, null].includes(m.winner) ? m.winner : null, m.score && typeof m.score === 'object' ? m.score : null);
         break;
       case 'skip':
         if (m.r !== G.r) break;
@@ -699,4 +708,4 @@
 
   renderLobbies([]);
   PRNet.connect();
-})();
+});
