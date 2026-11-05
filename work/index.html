@@ -70,7 +70,7 @@
           <p>Pren built accounting software, and the team wanted Claude to do much of the building. My biggest fix was to how that agent-written code talked to the database.</p>
 
           <h4>The problem</h4>
-          <p>One of the rules the agent followed was "reuse existing functions," a sensible rule for keeping a codebase small. When the first version of the app was built, the agent wrote a function that pulled everything from the database. As features were added, it did what the rule said and reused that function, so each new addition pulled the whole database again. No single change looked wrong, but together they sent database egress, the data read out of the database, far past our limit.</p>
+          <p>One of the rules the agent followed was "reuse existing functions," a sensible rule for keeping a codebase small. When the first version of the app was built, the agent wrote a function that pulled everything from the database. As features were added, it did what the rule said and reused that function, so every single time the app ran, it pulled the whole database again, even when nothing had changed. No single run looked wrong, but together they sent database egress, the data read out of the database, far past our limit.</p>
 
           <h4>The fix</h4>
           <p>I designed a sync that only pulls new information:</p>
@@ -93,10 +93,10 @@
               <p class="ledger-rule">1. Reuse existing functions.</p>
               <p class="ledger-rule ledger-new">2. Only pull what changed: database version first, then each store's version, then just the new rows.</p>
               <p class="ledger-title">Shared data function</p>
-              <p><span class="ledger-old">Pull everything</span> · reused by every new feature</p>
-              <p class="ledger-new">Pull only what changed · reused by every new feature</p>
+              <p><span class="ledger-old">Pull everything</span> · on every run</p>
+              <p class="ledger-new">Pull only what changed · on every run</p>
             </div>
-            <figcaption>Drag the slider to see the fix. The agent's rule book gets the new rule, and every feature that reuses the shared function gets cheaper too.</figcaption>
+            <figcaption>Drag the slider to see the fix. The agent's rule book gets the new rule, and every run of the shared function gets cheaper too.</figcaption>
           </figure>
 
           <h4>Why it was interesting</h4>
