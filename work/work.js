@@ -221,7 +221,7 @@
         const seaCx = (W * 0.36 + W) / 2 + (narrow ? 0 : W * 0.06);
         T('WASTED EGRESS', seaCx, seaTop + 30, { size: narrow ? 9 : 11, color: '#ffffff', align: 'center', outline: true });
         T(`${wasted} boulder${wasted === 1 ? '' : 's'} in the sea`, seaCx, seaTop + 48, { size: 8, color: C.yellow, align: 'center', outline: true });
-        T('every new feature hauls the WHOLE database again', W / 2, capY, { size: 9, align: 'center', outline: true, max: capMax || app.x0 - db.x1 - 12 });
+        T('every single run hauls the WHOLE database again', W / 2, capY, { size: 9, align: 'center', outline: true, max: capMax || app.x0 - db.x1 - 12 });
         ctx.restore();
       }
 
