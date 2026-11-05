@@ -110,10 +110,20 @@
       <p class="job-org">Acoustic metamaterial startup</p>
       <p class="job-summary">Built optimization software that designs manufacturable material shapes to block or redirect sound.</p>
       <details class="job-detail">
-        <summary>What I built and why it matters</summary>
+        <summary>What I built, with an interactive visual</summary>
         <div class="entry">
           <p>Sound is a pressure wave, and a material's internal geometry decides what happens to that wave: it can trap it, cancel it, or steer it somewhere else. My software generates material shapes that manipulate those waves to block sound. Each shape is generated for a specific manufacturing method, so the designs it produces can actually be made.</p>
           <p>Blocking isn't the only option. Redirecting the sound can be more effective than simply stopping it, and the software explores those designs too.</p>
+
+          <figure class="viz" id="metaViz">
+            <div class="viz-slider">
+              <span>Plain wall</span>
+              <input type="range" min="0" max="100" value="0" aria-label="Plain wall or optimized metamaterial">
+              <span>Optimized metamaterial</span>
+            </div>
+            <canvas role="img" aria-label="Top: the optimizer generates candidate unit-cell shapes for one manufacturing method at a time (coiled channels for 3D printing, straight slots for CNC milling, perforated plates for laser-cut sheets), scores each one, and keeps the best. Bottom: a drone's sound waves travel toward a home. With a plain wall most of the sound gets through and the home hears it. With a panel built from the optimizer's best cell, only a little gets through and much of the sound is redirected up and away."></canvas>
+            <figcaption>Drag the slider. The top strip is the optimizer: it only generates shapes the chosen manufacturing method can make, scores them, and keeps the best. The panel in the scene is built from that best shape.</figcaption>
+          </figure>
 
           <h4>Why it matters</h4>
           <p>Quieter homes are the obvious use. The sharper one is defense, where drones and other equipment need to go unheard. In both, the physics and the manufacturing pull against each other. The best shape on paper is worthless if it can't be built, so the manufacturing method shapes the search from the start.</p>

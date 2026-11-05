@@ -87,6 +87,7 @@
   // ---------- figure shell: slider, pixel pipeline, text overlay ----------
   function figure(fig, scene) {
     const canvas = fig.querySelector('canvas'), input = fig.querySelector('input[type=range]'), ctx = canvas.getContext('2d');
+    const [lo, hi] = [...fig.querySelectorAll('.viz-slider span')].map((el) => el.textContent);
     const off = document.createElement('canvas'), octx = off.getContext('2d');
     const st = { beforeStart: 100, after: false };
     let W = 0, H = 0, dpr = 1, v = Number(input.value) / 100, t = 100, last = performance.now(), visible = true;
@@ -100,7 +101,7 @@
     function onInput() {
       const after = Number(input.value) >= 50;
       fig.classList.toggle('is-after', after);
-      input.setAttribute('aria-valuetext', after ? 'After Suyog' : 'Before Suyog');
+      input.setAttribute('aria-valuetext', after ? hi : lo);
     }
     input.addEventListener('input', onInput); onInput();
     new ResizeObserver(size).observe(canvas); size();
@@ -404,10 +405,145 @@
     },
   };
 
+
+  // ======================= Metamaterial: optimizer + sound wall =======================
+  const METHODS = ['3D printing', 'CNC milling', 'laser-cut sheets'];
+  // One candidate unit cell. Each manufacturing method allows a different kind of geometry.
+  function cell(ctx, x, y, s, method, seed) {
+    const mat = '#c4c6da', h = (i) => hash(seed * 31 + i);
+    rect(ctx, x, y, s, s, '#2a2b45');
+    ctx.strokeStyle = mat; ctx.fillStyle = mat; ctx.lineWidth = Math.max(2, s * 0.07);
+    if (method === 0) { // printed: coiled channel, curves and overhangs allowed
+      const turns = 2 + Math.floor(h(1) * 3), cx = x + s / 2, cy = y + s / 2;
+      ctx.beginPath();
+      for (let a = 0; a < turns * Math.PI * 2; a += 0.2) {
+        const r = s * 0.08 + (a / (turns * Math.PI * 2)) * s * 0.38;
+        const px = cx + Math.cos(a + h(2) * 6) * r, py = cy + Math.sin(a + h(2) * 6) * r;
+        a ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+      }
+      ctx.stroke();
+    } else if (method === 1) { // milled: straight slots cut from the top, no overhangs
+      ctx.fillRect(x + 3, y + 3, s - 6, s - 6);
+      const n = 3 + Math.floor(h(1) * 3), sw = (s - 10) / (n * 2 - 1);
+      ctx.fillStyle = '#2a2b45';
+      for (let i = 0; i < n; i++) ctx.fillRect(x + 5 + i * 2 * sw, y + 3, sw, (s - 10) * (0.35 + 0.6 * h(i + 3)));
+    } else { // laser-cut: stacked flat plates with holes
+      const n = 3 + Math.floor(h(1) * 3), gap = (s - 6) / n;
+      for (let i = 0; i < n; i++) {
+        const py = y + 4 + i * gap, hole = x + 4 + h(i + 5) * (s - 20);
+        ctx.fillRect(x + 3, py, hole - x - 3, 3);
+        ctx.fillRect(hole + 8 + h(i + 9) * 6, py, x + s - 3 - (hole + 8 + h(i + 9) * 6), 3);
+      }
+    }
+    ctx.strokeStyle = C.dark; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
+  }
+  const meta = {
+    aspect: 0.78, minH: 400, maxH: 480,
+    draw(ctx, T, W, H, t, v) {
+      const narrow = W < 480;
+
+      // ---- top: the optimizer generating and scoring shapes for one manufacturing method ----
+      const optH = Math.round(H * 0.34);
+      rect(ctx, 0, 0, W, optH, C.night);
+      const CYCLE = 7, m = Math.floor(t / CYCLE) % 3, round = Math.floor(t / CYCLE), u = t % CYCLE, step = 0.45;
+      const made = Math.min(14, Math.floor(u / step) + 1);
+      const score = (i) => clamp(hash(round * 97 + i) * (0.45 + 0.55 * Math.sqrt(i / 14)) + 0.1, 0, 1);
+      let best = 0;
+      for (let i = 1; i < made; i++) if (score(i) > score(best)) best = i;
+      T('OPTIMIZER', 10, 18, { size: 10, color: C.yellow });
+      T(`method: ${METHODS[m]}`, 10, 34, { size: 8, color: C.muted, max: W * 0.55 });
+      const bs = Math.min(76, optH - 46), bx = W - bs - 14, by = 26;
+      const cs = Math.min(44, optH - 70), cols = clamp(Math.floor((bx - 30) / (cs + 8)), 2, 6);
+      for (let c = 0; c < cols; c++) {
+        const i = made - cols + c;
+        if (i < 0) continue;
+        const x = 10 + c * (cs + 8), y = 46;
+        cell(ctx, x, y, cs, m, round * 97 + i);
+        if (i === made - 1) { ctx.globalAlpha = 0.25 + 0.25 * Math.sin(t * 12); rect(ctx, x, y, cs, cs, '#ffffff'); ctx.globalAlpha = 1; }
+        meter(ctx, x, x + cs, y + cs + 6, score(i), null, i === best ? C.yellow : C.green);
+        if (i === best) rect(ctx, x - 3, y - 3, cs + 6, cs + 6, null, C.yellow, 2);
+      }
+      if (!narrow) T('candidates →', 10 + cols * (cs + 8) - 4, 42, { size: 7, color: C.muted, align: 'right' });
+      cell(ctx, bx, by, bs, m, round * 97 + best);
+      rect(ctx, bx - 3, by - 3, bs + 6, bs + 6, null, C.yellow, 3);
+      T('best so far', bx + bs / 2, by + bs + 16, { size: 8, color: C.yellow, align: 'center' });
+
+      // ---- bottom: a drone's sound hitting a wall on its way to a house ----
+      const top = optH, ground = H - 26;
+      rect(ctx, 0, top, W, H - top, '#20294a');
+      for (let i = 0; i < 18; i++) rect(ctx, hash(i + 3) * W, top + hash(i + 40) * (ground - top) * 0.5, 2, 2, '#3a4778');
+      rect(ctx, 0, ground, W, H - ground, C.grass);
+      rect(ctx, 0, ground, W, 3, C.grassDark);
+      const droneX = Math.max(44, W * 0.1), droneY = top + (ground - top) * 0.42 + Math.sin(t * 2.2) * 4;
+      const wallX = Math.round(W * 0.46), ww = narrow ? 26 : 30, wallTop = top + 26;
+      const maxR = W * 0.95, trans = lerp(0.7, 0.1, v);
+      const ring = (cx, cy, r, a0, a1, alpha) => {
+        if (alpha <= 0.02) return;
+        ctx.save(); ctx.globalAlpha *= alpha; ctx.strokeStyle = '#9fd3ff'; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.arc(cx, cy, r, a0, a1); ctx.stroke(); ctx.restore();
+      };
+      const spacing = 30, phase = (t * 70) % spacing;
+      // incoming wave fronts, up to the wall
+      ctx.save(); ctx.beginPath(); ctx.rect(0, top, wallX, ground - top); ctx.clip();
+      for (let r = phase + 14; r < maxR; r += spacing) ring(droneX, droneY, r, -0.75, 0.75, 1 - r / maxR);
+      ctx.restore();
+      // what gets through
+      ctx.save(); ctx.beginPath(); ctx.rect(wallX + ww, top, W, ground - top); ctx.clip();
+      for (let r = phase + 14; r < maxR; r += spacing) ring(droneX, droneY, r, -0.75, 0.75, (1 - r / maxR) * trans * 1.4);
+      ctx.restore();
+      // with the metamaterial, much of the energy is steered up and away
+      if (v > 0.01) {
+        ctx.save(); ctx.beginPath(); ctx.rect(0, top, W, ground - top - 4); ctx.clip();
+        const ry = wallTop + (ground - wallTop) * 0.3;
+        for (let r = phase + 10; r < W * 0.45; r += spacing) ring(wallX, ry, r, -Math.PI * 0.86, -Math.PI * 0.6, v * (1 - r / (W * 0.45)));
+        ctx.restore();
+        T('redirected up and away', wallX - 8, top + 16, { size: 8, color: '#9fd3ff', align: 'right', outline: true, max: wallX - 16 });
+      }
+      // the drone
+      rect(ctx, droneX - 22, droneY - 6, 44, 14, '#5b5f8a', C.dark, 2);
+      rect(ctx, droneX - 38, droneY - 10, 76, 4, C.dark);
+      rect(ctx, droneX - 38, droneY - 16, 4, 8, C.dark); rect(ctx, droneX + 34, droneY - 16, 4, 8, C.dark);
+      const blade = 14 + Math.abs(Math.sin(t * 40)) * 12;
+      rect(ctx, droneX - 36 - blade / 2, droneY - 18, blade, 3, '#c4c6da');
+      rect(ctx, droneX + 36 - blade / 2, droneY - 18, blade, 3, '#c4c6da');
+      rect(ctx, droneX - 6, droneY + 8, 12, 6, C.dark);
+      if (Math.floor(t * 3) % 2) rect(ctx, droneX + 14, droneY - 2, 4, 4, C.red);
+      T('drone', droneX, droneY + 32, { size: 8, align: 'center', outline: true });
+      // the wall: plain before, a stack of the optimizer's best cells after
+      const wh = ground - wallTop;
+      if (1 - v > 0.01) {
+        ctx.save(); ctx.globalAlpha = 1 - v;
+        rect(ctx, wallX, wallTop, ww, wh, '#8d8fa8', C.dark, 2);
+        for (let i = 0; i < 14; i++) rect(ctx, wallX + 4 + hash(i) * (ww - 10), wallTop + 6 + hash(i + 20) * (wh - 12), 3, 3, '#6f7190');
+        ctx.restore();
+      }
+      if (v > 0.01) {
+        ctx.save(); ctx.globalAlpha = v;
+        for (let y = wallTop; y < ground - 1; y += ww) cell(ctx, wallX, y, Math.min(ww, ground - y), m, round * 97 + best);
+        ctx.restore();
+      }
+      T(v < 0.5 ? 'plain wall' : 'metamaterial', wallX + ww / 2, ground + 16, { size: 8, align: 'center', outline: true });
+      // the house and how loud it is there
+      const hx0 = W * 0.76, hx1 = W - 12, hy0 = ground - Math.min(70, (ground - top) * 0.5);
+      ctx.fillStyle = '#7a2f2f'; ctx.beginPath(); ctx.moveTo(hx0 - 6, hy0); ctx.lineTo((hx0 + hx1) / 2, hy0 - 26); ctx.lineTo(hx1 + 6, hy0); ctx.closePath(); ctx.fill();
+      rect(ctx, hx0, hy0, hx1 - hx0, ground - hy0, '#c94f4f', C.dark, 2);
+      rect(ctx, hx0 + (hx1 - hx0) * 0.2, hy0 + 12, 14, 12, C.yellow, C.dark, 2);
+      rect(ctx, hx1 - (hx1 - hx0) * 0.2 - 12, ground - 24, 12, 24, '#5a2a1a');
+      T('home', (hx0 + hx1) / 2, ground + 16, { size: 8, align: 'center', outline: true });
+      const loud = lerp(0.88, 0.12, v) + 0.03 * Math.sin(t * 9);
+      const mx0 = hx0 - 4, mx1 = hx1;
+      T('noise at home', mx0, top + 18, { size: 8, color: C.muted, max: mx1 - mx0 });
+      meter(ctx, mx0, mx1, top + 26, loud, null, v < 0.5 ? C.red : C.green);
+      T(v < 0.5 ? 'HEARD' : 'QUIET', mx1, top + 52, { size: 10, color: v < 0.5 ? C.red : C.green, align: 'right', outline: true });
+    },
+  };
+
   document.fonts.load(`10px ${FONT}`).catch(() => {}).then(() => {
     const p = document.getElementById('prenViz');
     if (p) figure(p, pren);
     const q = document.getElementById('personaViz');
     if (q) figure(q, persona);
+    const m = document.getElementById('metaViz');
+    if (m) figure(m, meta);
   });
 })();
