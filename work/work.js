@@ -497,8 +497,8 @@
         ctx.beginPath(); ctx.arc(cx, cy, r, a0, a1); ctx.stroke(); ctx.restore();
       };
       const spacing = 30, phase = (t * 70) % spacing;
-      // incoming wave fronts, up to the wall
-      ctx.save(); ctx.beginPath(); ctx.rect(0, top, wallX, ground - top); ctx.clip();
+      // incoming wave fronts, up to the wall and over its top
+      ctx.save(); ctx.beginPath(); ctx.rect(0, top, wallX, ground - top); ctx.rect(wallX, top, ww, wallTop - top); ctx.clip();
       for (let r = phase + 14; r < maxR; r += spacing) ring(droneX, droneY, r, -0.75, 0.75, 1 - r / maxR);
       ctx.restore();
       // what gets through
