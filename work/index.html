@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Experience · Suyog Bhandari</title>
-  <meta name="description" content="Suyog Bhandari's professional work: proactive AI systems at Persona, database sync at Pren, and acoustic metamaterial software.">
+  <title>Professional experience · Suyog Bhandari</title>
+  <meta name="description" content="Suyog Bhandari's professional experience: software engineer at Persona and Pren, and independent contractor for an acoustic metamaterial startup.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -22,20 +22,30 @@
 
   <main>
     <section class="intro">
-      <h1>Where I've worked, and the problems I solved there.</h1>
-      <p>Each entry describes the specific problem, how I solved it, and why it was more interesting than it first looked.</p>
+      <h1>Professional experience</h1>
     </section>
 
-    <section class="block">
-      <h2>Persona</h2>
-      <div class="block-body">
-        <article class="entry">
-          <h3>A proactive AI assistant</h3>
-          <p class="meta">With Zach Yadegari · LLM agents, background jobs, iOS</p>
+    <article class="job">
+      <h2 class="job-role">Software Engineer</h2>
+      <p class="job-org">Persona · with Zach Yadegari</p>
+      <p class="job-summary">Built the systems that let a proactive AI assistant decide what deserves attention and run requests that play out over time.</p>
+      <details class="job-detail">
+        <summary>The problem I solved, with an interactive visual</summary>
+        <div class="entry">
           <p>Persona is an iPhone assistant meant to act before you ask. It connects to Gmail, Calendar and Drive, keeps a model of who you are, and steps in when something matters. I built two of the systems behind that: the one that decides what deserves attention, and the one that runs requests that play out over time.</p>
 
           <h4>The problem</h4>
           <p>An assistant that watches your inbox can fail in two easy ways. It can surface everything and become one more source of notifications, or it can surface too little and be useless. The text of a message alone doesn't tell you which: "are you free later?" is worth acting on from a friend and is noise from a store.</p>
+
+          <figure class="viz" id="personaViz">
+            <div class="viz-slider">
+              <span>Before Suyog</span>
+              <input type="range" min="0" max="100" value="0" aria-label="Persona before or after Suyog">
+              <span>After Suyog</span>
+            </div>
+            <canvas role="img" aria-label="Before: a conveyor of cardboard boxes labeled email, message, calendar, promo and more feeds one big AI agent machine fed by a thick stream of Zach's money. It takes 4.5 seconds per box, so the line backs up and boxes pile on top of each other while the 'in line' count climbs. After: the same conveyor, at the same speed, feeds a small classifier layer that ignores promos and copies the rest to Memory, Action and Future action. Nothing waits in line, and only a thin trickle of money goes into Action."></canvas>
+            <figcaption>Drag the slider. Boxes arrive at the same speed both ways. Before, the expensive agent handles every box one at a time and the line backs up. After, a classifier sorts each box as it arrives and only real work reaches the agent.</figcaption>
+          </figure>
 
           <h4>Importance system</h4>
           <p>Everything that reaches Persona without the user asking, like an incoming email, goes through a triage step. It gathers the context that matters for that event: what Persona knows about the user, their history with the sender, and their recent conversations. Then it makes one of three decisions. It can ignore the event, notify the user, or start a <em>deep task</em>, a background agent run that does the work, such as checking the calendar and drafting a reply.</p>
@@ -46,16 +56,17 @@
 
           <h4>Why it was interesting</h4>
           <p>The hard part wasn't calling a model. It was judgment and time. Triage runs on every email, so it has to be cheap, but it also needs enough context to get the call right. It also has to explain itself, because when software acts on your behalf, you need to see why. Polling meant moving work off the phone into jobs that outlive the conversation and finish on their own.</p>
-        </article>
-      </div>
-    </section>
+        </div>
+      </details>
+    </article>
 
-    <section class="block">
-      <h2>Pren</h2>
-      <div class="block-body">
-        <article class="entry">
-          <h3>Accounting startup</h3>
-          <p class="meta">Since shut down · databases, AI-assisted development</p>
+    <article class="job">
+      <h2 class="job-role">Software Engineer</h2>
+      <p class="job-org">Pren · accounting startup, since shut down</p>
+      <p class="job-summary">Redesigned how agent-written code read from the database, so the app pulled only what changed instead of everything, every time.</p>
+      <details class="job-detail">
+        <summary>The problem I solved, with an interactive visual</summary>
+        <div class="entry">
           <p>Pren built accounting software, and the team wanted Claude to do much of the building. My biggest fix was to how that agent-written code talked to the database.</p>
 
           <h4>The problem</h4>
@@ -70,29 +81,49 @@
             <li>For the stores that changed, it runs the same check again and pulls only what it needs.</li>
           </ol>
 
+          <figure class="viz" id="prenViz">
+            <div class="viz-slider">
+              <span>Before Suyog</span>
+              <input type="range" min="0" max="100" value="0" aria-label="Pren before or after Suyog">
+              <span>After Suyog</span>
+            </div>
+            <canvas role="img" aria-label="Before: dump trucks haul giant boulders of data down a road from the database to the app's lot. Each time one arrives, the boulder the app already had is shoved into the sea, counted as wasted egress, and the egress meter runs past its limit. After: a small pickup carries only a version number. When nothing changed it turns around; when something did, a small truck brings just the new rows and adds them next to the boulder. Nothing goes into the sea."></canvas>
+            <div class="ledger">
+              <p class="ledger-title">Rules for the agent</p>
+              <p class="ledger-rule">1. Reuse existing functions.</p>
+              <p class="ledger-rule ledger-new">2. Only pull what changed: database version first, then each store's version, then just the new rows.</p>
+              <p class="ledger-title">Shared data function</p>
+              <p><span class="ledger-old">Pull everything</span> · reused by every new feature</p>
+              <p class="ledger-new">Pull only what changed · reused by every new feature</p>
+            </div>
+            <figcaption>Drag the slider to see the fix. The agent's rule book gets the new rule, and every feature that reuses the shared function gets cheaper too.</figcaption>
+          </figure>
+
           <h4>Why it was interesting</h4>
           <p>The bug didn't live in any one line. It came from a good rule meeting an expensive building block, and the agent kept multiplying the cost because it was being consistent. When code is written by an agent that follows rules, the functions it reaches for first need to be cheap, because they will be reused everywhere.</p>
-        </article>
-      </div>
-    </section>
+        </div>
+      </details>
+    </article>
 
-    <section class="block">
-      <h2>Independent</h2>
-      <div class="block-body">
-        <article class="entry">
-          <h3>Acoustic metamaterial optimizer</h3>
-          <p class="meta">My own software · Python, numerical optimization, fabrication</p>
+    <article class="job">
+      <h2 class="job-role">Independent Contractor</h2>
+      <p class="job-org">Acoustic metamaterial startup</p>
+      <p class="job-summary">Built optimization software that designs manufacturable material shapes to block or redirect sound.</p>
+      <details class="job-detail">
+        <summary>What I built and why it matters</summary>
+        <div class="entry">
           <p>Sound is a pressure wave, and a material's internal geometry decides what happens to that wave: it can trap it, cancel it, or steer it somewhere else. My software generates material shapes that manipulate those waves to block sound. Each shape is generated for a specific manufacturing method, so the designs it produces can actually be made.</p>
           <p>Blocking isn't the only option. Redirecting the sound can be more effective than simply stopping it, and the software explores those designs too.</p>
 
           <h4>Why it matters</h4>
           <p>Quieter homes are the obvious use. The sharper one is defense, where drones and other equipment need to go unheard. In both, the physics and the manufacturing pull against each other. The best shape on paper is worthless if it can't be built, so the manufacturing method shapes the search from the start.</p>
-        </article>
-      </div>
-    </section>
+        </div>
+      </details>
+    </article>
   </main>
 
   <footer>Suyog Bhandari, <span id="year"></span></footer>
   <script src="/js/year.js"></script>
+  <script src="/work/work.js"></script>
 </body>
 </html>
