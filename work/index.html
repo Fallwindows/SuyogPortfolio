@@ -121,8 +121,8 @@
               <input type="range" min="0" max="100" value="0" aria-label="Plain wall or optimized metamaterial">
               <span>Optimized metamaterial</span>
             </div>
-            <canvas role="img" aria-label="Top: the optimizer generates candidate unit-cell shapes for one manufacturing method at a time (coiled channels for 3D printing, straight slots for CNC milling, perforated plates for laser-cut sheets), scores each one, and keeps the best. Bottom: a drone's sound waves travel toward a home. With a plain wall most of the sound gets through and the home hears it. With a panel built from the optimizer's best cell, only a little gets through and much of the sound is redirected up and away."></canvas>
-            <figcaption>Drag the slider. The top strip is the optimizer: it only generates shapes the chosen manufacturing method can make, scores them, and keeps the best. The panel in the scene is built from that best shape.</figcaption>
+            <canvas role="img" aria-label="Top: the optimizer works through manufacturing methods in order, FDM printing, then CNC milling, then laser-cut sheets. For each it generates candidate unit cells the method can make (Helmholtz resonator chambers for FDM, wells of different depths for CNC, perforated sheets with air gaps for laser cutting), scores each one, and keeps the best. Bottom: a drone's sound waves travel toward a home. With a plain wall most of the sound gets through and the home hears it. With a panel built from the optimizer's best cell, only a little gets through and much of the sound is redirected up and away."></canvas>
+            <figcaption>Drag the slider. The top strip is the optimizer. It takes one manufacturing method at a time, only generates shapes that method can make, scores them, and keeps the best. The panel in the scene is built from that best shape.</figcaption>
           </figure>
 
           <h4>Why it matters</h4>

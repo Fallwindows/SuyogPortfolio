@@ -407,32 +407,36 @@
 
 
   // ======================= Metamaterial: optimizer + sound wall =======================
-  const METHODS = ['3D printing', 'CNC milling', 'laser-cut sheets'];
-  // One candidate unit cell. Each manufacturing method allows a different kind of geometry.
+  // What each method's cell does, shown while the optimizer works on it.
+  const METHOD_NOTE = ['resonator chambers that trap sound', 'wells of different depths that scatter it', 'perforated sheets that soak it up'];
+  // One candidate unit cell; sound arrives from the left, so every opening faces left.
+  // Each manufacturing method allows a different kind of geometry.
   function cell(ctx, x, y, s, method, seed) {
-    const mat = '#c4c6da', h = (i) => hash(seed * 31 + i);
-    rect(ctx, x, y, s, s, '#2a2b45');
-    ctx.strokeStyle = mat; ctx.fillStyle = mat; ctx.lineWidth = Math.max(2, s * 0.07);
-    if (method === 0) { // printed: coiled channel, curves and overhangs allowed
-      const turns = 2 + Math.floor(h(1) * 3), cx = x + s / 2, cy = y + s / 2;
-      ctx.beginPath();
-      for (let a = 0; a < turns * Math.PI * 2; a += 0.2) {
-        const r = s * 0.08 + (a / (turns * Math.PI * 2)) * s * 0.38;
-        const px = cx + Math.cos(a + h(2) * 6) * r, py = cy + Math.sin(a + h(2) * 6) * r;
-        a ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
-      }
-      ctx.stroke();
-    } else if (method === 1) { // milled: straight slots cut from the top, no overhangs
-      ctx.fillRect(x + 3, y + 3, s - 6, s - 6);
-      const n = 3 + Math.floor(h(1) * 3), sw = (s - 10) / (n * 2 - 1);
-      ctx.fillStyle = '#2a2b45';
-      for (let i = 0; i < n; i++) ctx.fillRect(x + 5 + i * 2 * sw, y + 3, sw, (s - 10) * (0.35 + 0.6 * h(i + 3)));
-    } else { // laser-cut: stacked flat plates with holes
-      const n = 3 + Math.floor(h(1) * 3), gap = (s - 6) / n;
+    const mat = '#c4c6da', air = '#2a2b45', h = (i) => hash(seed * 31 + i);
+    rect(ctx, x, y, s, s, air);
+    ctx.fillStyle = mat;
+    if (method === 0) { // FDM: Helmholtz resonator, a closed chamber behind a narrow neck
+      ctx.fillRect(x + 2, y + 2, s - 4, s - 4);
+      const cw = s * (0.34 + 0.28 * h(1)), ch = s * (0.36 + 0.3 * h(2));
+      const cx0 = x + s - 5 - cw, cy0 = y + (s - ch) / 2;
+      const nw = Math.max(3, s * (0.07 + 0.1 * h(3))), ny = y + s / 2 - nw / 2;
+      ctx.fillStyle = air;
+      ctx.fillRect(cx0, cy0, cw, ch);
+      ctx.fillRect(x + 2, ny, cx0 - x - 2, nw);
+    } else if (method === 1) { // CNC: wells milled straight in from the face, no overhangs
+      ctx.fillRect(x + 2, y + 2, s - 4, s - 4);
+      const n = 3 + Math.floor(h(1) * 3), pitch = (s - 4) / n, fin = Math.max(2, pitch * 0.25);
+      ctx.fillStyle = air;
+      for (let i = 0; i < n; i++) ctx.fillRect(x + 2, y + 2 + i * pitch + fin / 2, (s - 8) * (0.25 + 0.7 * h(i + 3)), pitch - fin);
+    } else { // laser-cut: thin perforated sheets with air gaps, solid backing
+      const n = 2 + Math.floor(h(1) * 3), gap = (s - 10) / n;
+      ctx.fillRect(x + s - 6, y + 2, 4, s - 4);
       for (let i = 0; i < n; i++) {
-        const py = y + 4 + i * gap, hole = x + 4 + h(i + 5) * (s - 20);
-        ctx.fillRect(x + 3, py, hole - x - 3, 3);
-        ctx.fillRect(hole + 8 + h(i + 9) * 6, py, x + s - 3 - (hole + 8 + h(i + 9) * 6), 3);
+        const px = x + 4 + i * gap, holeStep = 6 + Math.floor(h(i + 5) * 4);
+        ctx.fillStyle = mat; ctx.fillRect(px, y + 2, 4, s - 4);
+        ctx.fillStyle = air;
+        for (let py = y + 4 + (i % 2) * 3; py < y + s - 6; py += holeStep) ctx.fillRect(px, py, 4, 3);
+        ctx.fillStyle = mat;
       }
     }
     ctx.strokeStyle = C.dark; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
@@ -445,13 +449,22 @@
       // ---- top: the optimizer generating and scoring shapes for one manufacturing method ----
       const optH = Math.round(H * 0.34);
       rect(ctx, 0, 0, W, optH, C.night);
-      const CYCLE = 7, m = Math.floor(t / CYCLE) % 3, round = Math.floor(t / CYCLE), u = t % CYCLE, step = 0.45;
-      const made = Math.min(14, Math.floor(u / step) + 1);
+      // One method at a time, in order: generate designs for a while, then hold on the best one.
+      const GEN = 9, HOLD = 4, CYCLE = GEN + HOLD, step = 0.6, e = Math.max(0, t - 100);
+      const round = Math.floor(e / CYCLE), m = round % 3, u = e - round * CYCLE, done = u >= GEN;
+      const made = Math.min(15, Math.floor(Math.min(u, GEN - 0.01) / step) + 1);
       const score = (i) => clamp(hash(round * 97 + i) * (0.45 + 0.55 * Math.sqrt(i / 14)) + 0.1, 0, 1);
       let best = 0;
       for (let i = 1; i < made; i++) if (score(i) > score(best)) best = i;
       T('OPTIMIZER', 10, 18, { size: 10, color: C.yellow });
-      T(`method: ${METHODS[m]}`, 10, 34, { size: 8, color: C.muted, max: W * 0.55 });
+      const names = narrow ? ['FDM', 'CNC', 'Laser'] : ['FDM printing', 'CNC milling', 'Laser-cut'];
+      let sx = 10;
+      names.forEach((nm, i) => {
+        const label = `${i + 1} ${nm}${i < m ? ' OK' : ''}`;
+        T(label, sx, 34, { size: 8, color: i === m ? C.yellow : i < m ? C.green : C.muted });
+        sx += label.length * 6.9 + 6;
+        if (i < 2) { T('>', sx, 34, { size: 8, color: C.muted }); sx += 14; }
+      });
       const bs = Math.min(76, optH - 46), bx = W - bs - 14, by = 26;
       const cs = Math.min(44, optH - 70), cols = clamp(Math.floor((bx - 30) / (cs + 8)), 2, 6);
       for (let c = 0; c < cols; c++) {
@@ -459,14 +472,15 @@
         if (i < 0) continue;
         const x = 10 + c * (cs + 8), y = 46;
         cell(ctx, x, y, cs, m, round * 97 + i);
-        if (i === made - 1) { ctx.globalAlpha = 0.25 + 0.25 * Math.sin(t * 12); rect(ctx, x, y, cs, cs, '#ffffff'); ctx.globalAlpha = 1; }
+        if (i === made - 1 && !done) { ctx.globalAlpha = 0.25 + 0.25 * Math.sin(t * 12); rect(ctx, x, y, cs, cs, '#ffffff'); ctx.globalAlpha = 1; }
         meter(ctx, x, x + cs, y + cs + 6, score(i), null, i === best ? C.yellow : C.green);
         if (i === best) rect(ctx, x - 3, y - 3, cs + 6, cs + 6, null, C.yellow, 2);
       }
-      if (!narrow) T('candidates →', 10 + cols * (cs + 8) - 4, 42, { size: 7, color: C.muted, align: 'right' });
       cell(ctx, bx, by, bs, m, round * 97 + best);
       rect(ctx, bx - 3, by - 3, bs + 6, bs + 6, null, C.yellow, 3);
-      T('best so far', bx + bs / 2, by + bs + 16, { size: 8, color: C.yellow, align: 'center' });
+      T(done ? 'best design' : 'best so far', bx + bs / 2, by + bs + 16, { size: 8, color: C.yellow, align: 'center' });
+      const full = ['FDM printing', 'CNC milling', 'laser-cut sheets'][m];
+      T(done ? `DONE: best ${full} design found` : `${full}: ${METHOD_NOTE[m]}`, 10, optH - 10, { size: 8, color: done ? C.green : C.muted, max: bx - 20 });
 
       // ---- bottom: a drone's sound hitting a wall on its way to a house ----
       const top = optH, ground = H - 26;
