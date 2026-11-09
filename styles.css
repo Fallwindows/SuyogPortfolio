@@ -81,6 +81,10 @@ h2 {
 .entry h3 { font-size: 20px; font-weight: 600; line-height: 1.35; }
 .entry h3 a { color: inherit; }
 .entry .meta { font-size: 15px; color: var(--muted); margin: 2px 0 10px; }
+.entry h4 { font-size: 16px; font-weight: 600; margin: 24px 0 6px; }
+.entry p + p { margin-top: 12px; }
+.entry .steps { margin: 8px 0 0 1.4em; }
+.entry .steps li + li { margin-top: 4px; }
 
 .gallery {
   display: grid;
@@ -123,4 +127,53 @@ footer {
   .skills { grid-template-columns: 1fr; gap: 0; }
   .gallery { grid-template-columns: 1fr 1fr; gap: 8px; }
   .skills dd + dt { margin-top: 10px; }
+}
+
+/* Professional experience page */
+.job { padding: 32px 0 36px; border-top: 1px solid var(--rule); }
+.job-role { font-size: clamp(24px, 3.4vw, 30px); font-weight: 700; font-style: normal; color: var(--text); line-height: 1.2; padding: 0; }
+.job-org { font-size: 18px; font-weight: 600; margin-top: 4px; }
+.job-summary { color: var(--muted); margin-top: 10px; max-width: 620px; }
+.job-detail { margin-top: 16px; }
+.job-detail > summary {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer; list-style: none;
+  font-size: 16px; color: var(--link); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px;
+}
+.job-detail > summary::-webkit-details-marker { display: none; }
+.job-detail > summary::before { content: "+"; display: inline-block; width: 1em; text-decoration: none; font-weight: 600; }
+.job-detail[open] > summary::before { content: "−"; }
+.job-detail > .entry {
+  margin-top: 20px; padding: 4px 0 4px 20px; border-left: 2px solid var(--rule); max-width: 680px;
+}
+.job-detail > .entry h4:first-child { margin-top: 0; }
+
+/* Before/after pixel animations */
+.viz { margin: 24px 0 8px; }
+.viz-slider { display: flex; align-items: center; gap: 12px; font-size: 15px; color: var(--muted); margin-bottom: 10px; }
+.viz-slider input { flex: 1; min-width: 0; accent-color: var(--link); cursor: pointer; }
+.viz:not(.is-after) .viz-slider span:first-child,
+.viz.is-after .viz-slider span:last-child { color: var(--text); font-weight: 600; }
+.viz canvas { display: block; width: 100%; image-rendering: pixelated; }
+.viz figcaption { font-size: 14px; color: var(--muted); margin-top: 8px; }
+
+/* Brown-paper rule ledger, pixel style; a new rule gets written in after the fix */
+.ledger {
+  margin: 20px 4px 8px; padding: 14px 18px 16px;
+  font-family: "Press Start 2P", monospace; font-size: 9px; line-height: 2.1; color: #2b1a0e;
+  background: #b98a55;
+  box-shadow: 0 -4px 0 #b98a55, 0 4px 0 #b98a55, -4px 0 0 #b98a55, 4px 0 0 #b98a55, 0 0 0 4px #6e4426, 8px 8px 0 4px rgba(0, 0, 0, 0.3);
+}
+.ledger-title { text-decoration: underline; text-underline-offset: 4px; }
+.ledger-rule { padding-left: 1.6em; text-indent: -1.6em; margin-left: 0.4em; }
+.ledger-rule + .ledger-title { margin-top: 10px; }
+.ledger-new { clip-path: inset(0 100% 0 0); opacity: 0; transition: clip-path 1.4s steps(24) 0.5s, opacity 0.2s ease 0.5s; }
+.viz.is-after .ledger-new { clip-path: inset(0 0 0 0); opacity: 1; }
+.ledger-old { position: relative; }
+.ledger-old::after {
+  content: ""; position: absolute; left: -2px; right: -2px; top: 45%; height: 3px; background: #8a1f0f;
+  transform: scaleX(0); transform-origin: left; transition: transform 0.6s steps(8);
+}
+.viz.is-after .ledger-old::after { transform: scaleX(1); }
+@media (prefers-reduced-motion: reduce) {
+  .ledger-new, .ledger-old::after { transition: none; }
 }
