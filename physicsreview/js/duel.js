@@ -8,10 +8,10 @@ PRNet.ready.then(function () {
 
   // ---------- name ----------
   const nameInput = $('nameInput');
-  try { nameInput.value = localStorage.getItem('pr-name') || ''; } catch (e) {}
+  try { nameInput.value = localStorage.getItem(PR.key('name')) || ''; } catch (e) {}
   function myName() {
     const n = nameInput.value.trim().slice(0, 20) || 'Player ' + me.slice(0, 3).toUpperCase();
-    try { localStorage.setItem('pr-name', nameInput.value.trim()); } catch (e) {}
+    try { localStorage.setItem(PR.key('name'), nameInput.value.trim()); } catch (e) {}
     return n;
   }
 
@@ -46,28 +46,60 @@ PRNet.ready.then(function () {
   const cleanName = (n) => (typeof n === 'string' ? n.replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩]/g, '').trim().slice(0, 20) : '') || 'Opponent';
   const validUnits = (u) => Array.isArray(u) && u.length >= 1 && u.length <= 10 && u.every((x) => Number.isInteger(x) && PR.UNITS[x]);
   const validRounds = (r) => Number.isInteger(r) && r >= 1 && r <= 50;
-  const validLobby = (l) => l && typeof l.hostName === 'string' && validUnits(l.units) && validRounds(l.rounds) && typeof l.created === 'number';
+  // A match snapshot: current problem index and who won each finished one.
+  const validSnap = (s, rounds, ids) => s && typeof s === 'object' && Number.isInteger(s.r) && s.r >= 0 && s.r < rounds &&
+    typeof s.over === 'boolean' && Array.isArray(s.results) && s.results.length <= rounds &&
+    s.results.every((x) => x === null || (x && typeof x === 'object' && ids.includes(x.w) && typeof x.secs === 'number'));
+  const validLobby = (l) => l && typeof l.hostName === 'string' && validUnits(l.units) && validRounds(l.rounds) && typeof l.created === 'number' &&
+    (l.status !== 'playing' || (typeof l.guestId === 'string' && Number.isInteger(l.seed) && validSnap(l.snap, l.rounds, [l.hostId, l.guestId, null])));
+  const AWAY_MS = 35000; // no lobby refresh / message for this long = that player is away
 
   function renderLobbies(list) {
     const el = $('lobbyList');
-    const others = list.filter((l) => l.hostId !== me && validLobby(l));
     if (!online) { el.innerHTML = '<div class="empty">Connecting to the lobby server…</div>'; return; }
-    if (!others.length) {
+    const now = Date.now();
+    // Open lobbies (other people's, or my own if I reloaded while waiting), plus matches I'm a player in.
+    const rows = list.filter(validLobby).filter((l) => {
+      if (hosting && l.hostId === me) return false;
+      if (G && !G.over && G.lobbyId === l.hostId) return false;
+      return l.status === 'open' || l.hostId === me || l.guestId === me;
+    }).sort((a, b) => (b.status === 'playing') - (a.status === 'playing'));
+    if (!rows.length) {
       el.innerHTML = '<div class="empty">No open lobbies right now. Create one, and it will show up here for anyone else on this page.</div>';
       return;
     }
     el.innerHTML = '';
-    others.forEach((l) => {
+    rows.forEach((l) => {
       const row = document.createElement('div');
       row.className = 'lobby-item';
-      const age = Math.max(0, Math.round((Date.now() - l.created) / 60000));
-      row.innerHTML = `<span class="status-dot on"></span>
-        <div class="meta"><b>${PR.esc(cleanName(l.hostName))}'s lobby</b>
-        <span>${PR.esc(unitLabel(l.units))} · ${Number(l.rounds)} problems · ${age ? age + ' min ago' : 'just now'}</span></div>`;
+      const age = Math.max(0, Math.round((now - l.created) / 60000));
+      const hostAway = now - l.ts > AWAY_MS;
+      const host = PR.esc(cleanName(l.hostName));
       const btn = document.createElement('button');
       btn.className = 'btn primary small';
-      btn.textContent = 'Join';
-      btn.onclick = () => joinLobby(l);
+      if (l.status === 'playing') {
+        const guest = PR.esc(cleanName(l.guestName));
+        const res = l.snap.results;
+        const sc = (id) => res.filter((x) => x && x.w === id).length;
+        const asHost = l.hostId === me;
+        row.innerHTML = `<span class="status-dot ${hostAway ? '' : 'on'}"></span>
+          <div class="meta"><b>${host} vs ${guest}</b>
+          <span>${PR.esc(unitLabel(l.units))} · problem ${l.snap.r + 1} / ${Number(l.rounds)} · ${sc(l.hostId)}–${sc(l.guestId)}${hostAway ? ` · ${host} away` : ''}</span></div>`;
+        btn.textContent = `Rejoin as ${cleanName(asHost ? l.hostName : l.guestName)}`;
+        btn.onclick = () => rejoinMatch(l);
+      } else {
+        row.innerHTML = `<span class="status-dot ${hostAway ? '' : 'on'}"></span>
+          <div class="meta"><b>${host}'s lobby</b>
+          <span>${PR.esc(unitLabel(l.units))} · ${Number(l.rounds)} problems · ${age ? age + ' min ago' : 'just now'}${hostAway ? ' · host away' : ''}</span></div>`;
+        if (l.hostId === me) {
+          btn.textContent = 'Reopen your lobby';
+          btn.onclick = () => openMyLobby({ hostName: cleanName(l.hostName), units: l.units, rounds: l.rounds, created: l.created });
+        } else {
+          btn.textContent = hostAway ? 'Host away' : 'Join';
+          btn.disabled = hostAway;
+          btn.onclick = () => joinLobby(l);
+        }
+      }
       row.append(btn);
       el.append(row);
     });
@@ -89,10 +121,13 @@ PRNet.ready.then(function () {
       meName: opts.meName,
       opName: opts.opName || '',
       opId: opts.opId || null,
+      created: opts.created || Date.now(),
       score: { me: 0, op: 0 },
+      results: [], // per problem: { w: winner id or null, secs }, the shared record both sides sync on
       round: null,
       history: [],
-      opSeen: Date.now(),
+      opSeen: opts.opSeen || Date.now(),
+      opAway: false,
       over: false,
     };
     $('log').innerHTML = '';
@@ -102,8 +137,59 @@ PRNet.ready.then(function () {
     $('chatRow').classList.toggle('hidden', mode === 'solo');
     screen('gameScreen');
     renderHistory();
-    startRound(0);
+    if (opts.restore) adopt(opts.restore);
+    else startRound(0);
+    // The host's lobby record doubles as the match record, so either player can rejoin from it.
+    if (mode === 'host') PRNet.openLobby(matchRecord);
     if (mode !== 'solo') startHeartbeat();
+  }
+
+  // ---------- match record + resync ----------
+  function snap() { return { r: G.r, results: G.results.slice(0, G.rounds), over: G.over }; }
+  // How far a match has got; whichever side is further along is the truth after a reconnect.
+  const progressOf = (s) => (s.over ? Infinity : s.r * 2 + (s.results[s.r] ? 1 : 0));
+  function matchRecord() {
+    return {
+      status: 'playing', created: G.created, hostName: G.meName, units: G.units, rounds: G.rounds, seed: G.seed,
+      guestId: G.opId, guestName: G.opName, snap: snap(),
+    };
+  }
+  function recordChanged() { if (G && G.mode === 'host' && !G.over) PRNet.refreshLobby(); }
+  function recount() {
+    G.score.me = G.results.filter((x) => x && x.w === me).length;
+    G.score.op = G.results.filter((x) => x && x.w && x.w === G.opId).length;
+    scores();
+  }
+
+  // Jump to a snapshot: rebuild finished problems, then reopen the current one.
+  function adopt(s) {
+    G.results = s.results.map((x) => (x ? { w: x.w, secs: x.secs } : null));
+    G.history = [];
+    for (let i = 0; i < s.r; i++) {
+      const x = G.results[i];
+      if (x) G.history.push({ r: i, problem: G.problems[i], winner: x.w, secs: x.secs });
+    }
+    renderHistory();
+    if (s.over) { G.r = s.r; recount(); finish(); return; }
+    startRound(s.r);
+    recount();
+    const x = G.results[s.r];
+    if (x) applyWinner(x.w, x.secs);
+  }
+
+  // Sent whenever we (re)enter a match or the connection comes back: the other side answers
+  // with its snapshot, both keep the furthest one, then re-send anything the other may have missed.
+  function sendHello() { if (G && G.mode !== 'solo') PRNet.send({ type: 'hello', name: G.meName, snap: snap() }); }
+  function reconcile(s) {
+    if (!validSnap(s, G.rounds, [me, G.opId, null])) return;
+    if (progressOf(s) > progressOf(snap())) { adopt(s); log('Caught up with the match'); }
+    if (G.over) return;
+    const R = G.round;
+    if (R.pendingCorrect) PRNet.send({ type: 'attempt', r: G.r, ok: true, n: R.myTries });
+    if (R.myGaveUp) PRNet.send({ type: 'giveup', r: G.r });
+    if (G.mode === 'host' && R.winner !== undefined) PRNet.send({ type: 'won', r: G.r, winner: R.winner });
+    if (R.revealed && R.winner !== me && R.winner !== null) PRNet.send({ type: 'skip', r: G.r, solved: !!R.lateSolve });
+    if (R.readyMe) PRNet.send({ type: 'ready', r: G.r });
   }
 
   // Half workbook problems, half generated ones, interleaved. Deterministic per seed
@@ -124,6 +210,10 @@ PRNet.ready.then(function () {
 
   // Which lesson to point at after a round, by visual key. Filled in from the lesson files.
   function lessonFor(p) {
+    if (p.lesson) { // problems that name their lesson directly (Computer Science)
+      const l = (window.LESSONS || []).find((x) => x.id === p.lesson);
+      return { id: p.lesson, title: l ? l.title : 'the matching lesson' };
+    }
     const map = window.PR_LESSON_FOR_KEY || {};
     const key = (p.figure && p.figure.key) || (p.visual && p.visual.key);
     const lessonById = (lid) => (window.LESSONS || []).find((x) => x.id === lid);
@@ -151,13 +241,13 @@ PRNet.ready.then(function () {
       pendingCorrect: false,
     };
     renderProblem();
-    setStatus('me', ''); setStatus('op', G.mode === 'solo' ? '' : 'solving…');
+    setStatus('me', ''); setStatus('op', G.mode === 'solo' ? '' : G.opAway ? 'away · can rejoin' : 'solving…');
     liveLine();
+    recordChanged();
   }
 
   function cur() { return G.problems[G.r]; }
   function isHostish() { return G.mode !== 'guest'; }
-  function oppId() { return G.mode === 'solo' ? null : G.opId; }
 
   // ---------- rendering ----------
   function setStatus(who, text) { $(who === 'me' ? 'meStatus' : 'opStatus').textContent = text; }
@@ -201,11 +291,13 @@ PRNet.ready.then(function () {
       area.innerHTML = '<div class="choices">' + p.choices.map((c, i) => `<button data-i="${i}">${String.fromCharCode(65 + i)}. ${c}</button>`).join('') + '</div>';
       area.querySelectorAll('button').forEach((b) => (b.onclick = () => submit(Number(b.dataset.i), b)));
     } else {
+      // 'numeric' answers are numbers; 'text' answers are typed exactly (e.g. program output).
+      const isText = p.type === 'text';
       area.innerHTML = `<div class="answer-row">
-        <input type="text" id="ansInput" inputmode="decimal" autocomplete="off" placeholder="Your answer">
+        <input type="text" id="ansInput" ${isText ? 'spellcheck="false" class="mono wide"' : 'inputmode="decimal"'} autocomplete="off" placeholder="${PR.esc(p.placeholder || 'Your answer')}">
         <span class="muted">${PR.esc(p.units || '')}</span>
         <button class="btn primary" id="ansBtn">Submit</button></div>
-        <p class="muted" style="font-size:12px;margin-top:6px">Scientific notation works: 3.2e5 or 3.2x10^5.</p>`;
+        <p class="muted" style="font-size:12px;margin-top:6px">${PR.esc(isText ? p.hint || 'Type exactly what the code prints.' : 'Scientific notation works: 3.2e5 or 3.2x10^5.')}</p>`;
       const inp = $('ansInput');
       $('ansBtn').onclick = () => submit(inp.value);
       inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(inp.value); });
@@ -252,15 +344,16 @@ PRNet.ready.then(function () {
 
   // Visual + steps + lesson link for one problem. Shared by the live round and the history viewer.
   function explanationHTML(p) {
-    let svg = '';
+    // A problem either brings its own explanation markup (explainHTML) or a PRVisuals key.
+    let svg = p.explainHTML || '';
     try {
-      svg = window.PRVisuals ? PRVisuals.render(p.visual.key, p.visual.params) : '';
+      if (!svg && p.visual) svg = window.PRVisuals ? PRVisuals.render(p.visual.key, p.visual.params) : '';
     } catch (e) { console.error(e); }
     const l = lessonFor(p);
     return `<h3 style="font-size:16px">Visual explanation</h3>
       ${svg ? `<div class="visual">${svg}</div>` : ''}
       <ol>${p.steps.map((s) => `<li>${s}</li>`).join('')}</ol>
-      ${l ? `<p style="margin-top:12px"><a href="/physicsreview/learn.html#${l.id}" target="_blank" rel="noopener">Review the lesson: ${PR.esc(l.title)} →</a></p>` : ''}`;
+      ${l ? `<p style="margin-top:12px"><a href="${PR.path}/learn.html#${l.id}" target="_blank" rel="noopener">Review the lesson: ${PR.esc(l.title)} →</a></p>` : ''}`;
   }
 
   function showExplanation() {
@@ -324,6 +417,7 @@ PRNet.ready.then(function () {
 
   function answerText(p) {
     if (p.type === 'mc') return String.fromCharCode(65 + p.correct);
+    if (p.type === 'text') return PR.esc(p.answer);
     return `${PR.sig(p.answer, 3)} ${p.units || ''}`.trim();
   }
 
@@ -354,7 +448,7 @@ PRNet.ready.then(function () {
   function submit(response, btn) {
     const R = G.round;
     const p = cur();
-    if (p.type === 'numeric' && !String(response).trim()) return;
+    if (p.type !== 'mc' && !String(response).trim()) return;
     if (R.winner !== undefined) {
       // Opponent already won: free practice tries, no point, no fair-shot limit.
       if (R.revealed) return;
@@ -401,10 +495,10 @@ PRNet.ready.then(function () {
   // Per-browser stats, shown on the hub.
   function stat(p, ok) {
     try {
-      const s = JSON.parse(localStorage.getItem('pr-stats') || '{}');
+      const s = JSON.parse(localStorage.getItem(PR.key('stats')) || '{}');
       const t = (s[p.topic] = s[p.topic] || { unit: p.unit, tries: 0, right: 0 });
       t.tries++; if (ok) t.right++;
-      localStorage.setItem('pr-stats', JSON.stringify(s));
+      localStorage.setItem(PR.key('stats'), JSON.stringify(s));
     } catch (e) {}
   }
 
@@ -422,21 +516,19 @@ PRNet.ready.then(function () {
   function endRound(winner) {
     if (G.round.winner !== undefined) return;
     applyWinner(winner);
-    if (G.mode === 'host') PRNet.send({ type: 'won', r: G.r, winner, score: { [me]: G.score.me, [G.opId]: G.score.op } });
+    if (G.mode === 'host') PRNet.send({ type: 'won', r: G.r, winner });
   }
 
-  function applyWinner(winner, hostScore) {
+  // secs is given when replaying a result from a snapshot.
+  function applyWinner(winner, secs) {
     const R = G.round;
     const wasCorrect = R.pendingCorrect;
     R.winner = winner;
     R.pendingCorrect = false;
-    if (hostScore) {
-      G.score.me = Math.max(0, Math.floor(Number(hostScore[me]) || 0));
-      G.score.op = Math.max(0, Math.floor(Number(hostScore[G.opId]) || 0));
-    } else if (winner === me) G.score.me++;
-    else if (winner && winner === oppId()) G.score.op++;
-    scores();
-    R.secs = Math.round((Date.now() - R.started) / 1000);
+    R.secs = typeof secs === 'number' ? Math.max(0, Math.round(secs)) : Math.round((Date.now() - R.started) / 1000);
+    G.results[G.r] = { w: winner, secs: R.secs };
+    recount();
+    recordChanged();
     const p = cur();
     if (winner && winner !== me) {
       setStatus('op', 'solved ✓');
@@ -473,6 +565,7 @@ PRNet.ready.then(function () {
     if (R.revealed) return;
     R.revealed = true;
     R.opDone = true;
+    R.lateSolve = solved;
     PRNet.send({ type: 'skip', r: G.r, solved });
     lockInputs();
     const p = cur();
@@ -499,6 +592,7 @@ PRNet.ready.then(function () {
 
   function finish() {
     G.over = true;
+    if (G.mode === 'host') PRNet.closeLobby(); // nothing left to rejoin
     liveLine();
     const { me: a, op: b } = G.score;
     const solo = G.mode === 'solo';
@@ -538,9 +632,7 @@ PRNet.ready.then(function () {
   PRNet.on('game', (m) => {
     // Host waiting for someone to join.
     if (m.type === 'join' && hosting && !G) {
-      const opts = { seed: randSeed(), units: hosting.units, rounds: hosting.rounds, meName: hosting.hostName, opName: cleanName(m.name), opId: m.from, lobbyId: me };
-      PRNet.closeLobby(); // stop advertising, but keep the game topic
-      PRNet.joinGame(me);
+      const opts = { seed: randSeed(), units: hosting.units, rounds: hosting.rounds, meName: hosting.hostName, opName: cleanName(m.name), opId: m.from, lobbyId: me, created: hosting.created };
       PRNet.send({ type: 'start', to: m.from, seed: opts.seed, units: opts.units, rounds: opts.rounds, hostName: hosting.hostName });
       hosting = null;
       newGame('host', opts);
@@ -568,16 +660,35 @@ PRNet.ready.then(function () {
       return;
     }
 
-    if (!G || m.from !== G.opId) return;
+    if (!G || G.mode === 'solo' || m.from !== G.opId) return;
     G.opSeen = Date.now();
+    if (G.opAway && m.type !== 'away') {
+      if (G.opAway === true) log(`${G.opName} is back`); // not when we were the ones rejoining
+      G.opAway = false;
+      if (!G.over) setStatus('op', 'connected');
+    }
     const R = G.round;
     switch (m.type) {
       case 'ping': break;
       case 'chat': if (typeof m.text === 'string') log(`${G.opName}: ${m.text.slice(0, 140)}`); break;
+      case 'hello':
+        PRNet.send({ type: 'sync', snap: snap() });
+        reconcile(m.snap);
+        break;
+      case 'sync':
+        reconcile(m.snap);
+        break;
+      case 'away': // their page closed or reloaded; they can rejoin from the lobby list
+        opGone();
+        break;
       case 'leave':
         log(`${G.opName} left the match`);
         setStatus('op', 'left');
-        if (!G.over) { G.over = true; feedback('info', `${PR.esc(G.opName)} left the match.`); }
+        if (!G.over) {
+          G.over = true;
+          if (G.mode === 'host') PRNet.closeLobby();
+          feedback('info', `${PR.esc(G.opName)} left the match.`);
+        }
         break;
       case 'attempt':
         if (m.r !== G.r || R.winner !== undefined) break;
@@ -598,10 +709,11 @@ PRNet.ready.then(function () {
         if (G.mode === 'host' && R.myGaveUp) endRound(null);
         break;
       case 'won':
-        if (G.mode === 'guest' && m.r === G.r) applyWinner([me, G.opId, null].includes(m.winner) ? m.winner : null, m.score && typeof m.score === 'object' ? m.score : null);
+        if (G.mode === 'guest' && m.r === G.r && R.winner === undefined) applyWinner([me, G.opId, null].includes(m.winner) ? m.winner : null);
         break;
       case 'skip':
-        if (m.r !== G.r) break;
+        if (m.r !== G.r || R.opSkipped) break;
+        R.opSkipped = true;
         R.opDone = true;
         setStatus('op', m.solved ? 'solved (late)' : 'skipped');
         log(`#${G.r + 1}: ${G.opName} ${m.solved ? 'solved it too' : 'skipped'}`);
@@ -629,12 +741,32 @@ PRNet.ready.then(function () {
   $('createBtn').onclick = () => {
     const units = $('unitSelect').value.split(',').map(Number);
     const rounds = Number($('roundSelect').value);
-    hosting = { hostName: myName(), units, rounds };
-    PRNet.openLobby(hosting);
-    $('waitTitle').textContent = 'Waiting for an opponent…';
-    $('waitSub').textContent = `${unitLabel(units)} · ${rounds} problems. Your lobby is listed for everyone on the 1v1 page.`;
-    screen('waitScreen');
+    openMyLobby({ hostName: myName(), units, rounds, created: Date.now() });
   };
+  function openMyLobby(info) {
+    hosting = info;
+    PRNet.openLobby({ status: 'open', hostName: info.hostName, units: info.units, rounds: info.rounds, created: info.created });
+    $('waitTitle').textContent = 'Waiting for an opponent…';
+    $('waitSub').textContent = `${unitLabel(info.units)} · ${info.rounds} problems. Your lobby is listed for everyone on the 1v1 page for 15 minutes, even if you get disconnected.`;
+    screen('waitScreen');
+  }
+
+  // Back into a match I was playing (same key as before, so the other side accepts me).
+  function rejoinMatch(l) {
+    const asHost = l.hostId === me;
+    const opts = {
+      seed: l.seed, units: l.units, rounds: l.rounds, created: l.created,
+      meName: cleanName(asHost ? l.hostName : l.guestName), opName: cleanName(asHost ? l.guestName : l.hostName),
+      opId: asHost ? l.guestId : l.hostId, lobbyId: l.hostId, restore: l.snap,
+    };
+    PRNet.joinGame(l.hostId);
+    newGame(asHost ? 'host' : 'guest', opts);
+    log('You rejoined the match');
+    // Treat the other side as away until they answer.
+    G.opSeen = 0;
+    opGone(true);
+    setTimeout(sendHello, 400);
+  }
   $('cancelWait').onclick = () => {
     hosting = null;
     PRNet.closeLobby();
@@ -666,6 +798,7 @@ PRNet.ready.then(function () {
 
   function leave() {
     if (G && G.mode !== 'solo') PRNet.send({ type: 'leave' });
+    if (G && G.mode === 'host') PRNet.closeLobby();
     stopHeartbeat();
     PRNet.leaveGame();
     G = null;
@@ -691,10 +824,30 @@ PRNet.ready.then(function () {
     G.opSeen = Date.now();
     pingTimer = setInterval(() => PRNet.send({ type: 'ping' }), 5000);
     watchTimer = setInterval(() => {
-      if (G && !G.over && Date.now() - G.opSeen > 20000) setStatus('op', 'connection lost…');
+      if (!G || G.over) return;
+      if (!G.opAway && Date.now() - G.opSeen > 20000) opGone();
+      // Rejoined and nobody answered: they're away too.
+      if (G.opAway === 'unknown' && Date.now() - G.opAwaySince > 8000) { G.opAway = false; opGone(); }
     }, 3000);
   }
   function stopHeartbeat() { clearInterval(pingTimer); clearInterval(watchTimer); }
+
+  // The opponent dropped: the match waits for them (up to 15 minutes) instead of ending.
+  function opGone(quiet) {
+    if (!G || G.over || G.opAway) return;
+    G.opAway = quiet ? 'unknown' : true;
+    G.opAwaySince = Date.now();
+    setStatus('op', quiet ? 'checking if they\'re here…' : 'away · can rejoin');
+    if (!quiet) log(`${G.opName} disconnected. The match stays open for 15 minutes so they can rejoin from the lobby list.`);
+  }
+
+  // Our own connection came back after a drop: messages may have been lost, so resync.
+  let wasOnline = false;
+  PRNet.on('status', ({ state }) => {
+    if (state !== 'online') return;
+    if (wasOnline && G && !G.over) sendHello();
+    wasOnline = true;
+  });
 
   tickTimer = setInterval(() => {
     if (!G || G.over || !G.round) { $('timer').textContent = ''; return; }
@@ -702,7 +855,8 @@ PRNet.ready.then(function () {
     $('timer').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   }, 500);
 
-  window.addEventListener('beforeunload', () => { if (G && G.mode !== 'solo') PRNet.send({ type: 'leave' }); });
+  // Closing or reloading isn't leaving: the opponent is told we're away, and we can rejoin.
+  window.addEventListener('beforeunload', () => { if (G && G.mode !== 'solo' && !G.over) PRNet.send({ type: 'away' }); });
 
   window.PRDuelState = () => G; // for debugging from the console
 

@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /media/
+Disallow: /physicsreview/
+Disallow: /tictactoeplus/
+Disallow: /0x636c7565.txt

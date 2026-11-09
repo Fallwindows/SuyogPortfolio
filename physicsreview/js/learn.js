@@ -6,12 +6,12 @@
   let cleanup = null;
 
   function seen() {
-    try { return JSON.parse(localStorage.getItem('pr-seen') || '[]'); } catch (e) { return []; }
+    try { return JSON.parse(localStorage.getItem(PR.key('seen')) || '[]'); } catch (e) { return []; }
   }
   function markSeen(id) {
     try {
       const s = new Set(seen()); s.add(id);
-      localStorage.setItem('pr-seen', JSON.stringify([...s]));
+      localStorage.setItem(PR.key('seen'), JSON.stringify([...s]));
     } catch (e) {}
   }
 

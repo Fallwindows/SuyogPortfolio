@@ -1,6 +1,10 @@
 {
   "headers": [
     {
+      "source": "/0x636c7565.txt",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
       "source": "/(.*)",
       "headers": [
         {

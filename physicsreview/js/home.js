@@ -1,8 +1,8 @@
 // Physics Review home: lessons opened and accuracy by topic, from this browser's localStorage.
 (function () {
   let seen = [], stats = {};
-  try { seen = JSON.parse(localStorage.getItem('pr-seen') || '[]'); } catch (e) {}
-  try { stats = JSON.parse(localStorage.getItem('pr-stats') || '{}'); } catch (e) {}
+  try { seen = JSON.parse(localStorage.getItem(PR.key('seen')) || '[]'); } catch (e) {}
+  try { stats = JSON.parse(localStorage.getItem(PR.key('stats')) || '{}'); } catch (e) {}
   if (seen.length) document.getElementById('learnCta').textContent = `${seen.length} lessons opened · keep going →`;
   const el = document.getElementById('stats');
   const rows = Object.entries(stats).sort((a, b) => PR.unitRank(a[1].unit) - PR.unitRank(b[1].unit) || b[1].tries - a[1].tries);

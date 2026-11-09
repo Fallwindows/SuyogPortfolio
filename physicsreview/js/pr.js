@@ -95,7 +95,10 @@ window.PR = (function () {
 
   // Every unit on the site. Physics 2 keeps its original ids (1, 2) so saved stats
   // and open lobbies stay valid; Physics 1 units are 11–13. `rank` sets display order.
-  const UNITS = {
+  // A page can set window.PR_SITE (before this file) to reuse the engine for another course:
+  // { path, store (localStorage key prefix), net (broker topic base), units }.
+  const SITE = window.PR_SITE || {};
+  const UNITS = SITE.units || {
     11: { course: 'AP Physics 1', n: 1, name: 'Kinematics', rank: 1 },
     12: { course: 'AP Physics 1', n: 2, name: 'Force and Translational Dynamics', rank: 2 },
     13: { course: 'AP Physics 1', n: 3, name: 'Work, Energy, and Power', rank: 3 },
@@ -109,5 +112,8 @@ window.PR = (function () {
   const unitShort = (u) => { const i = unitInfo(u); return `${i.course.replace('AP ', '')} · Unit ${i.n}`.replace(/^ · /, ''); };
   const unitRank = (u) => unitInfo(u).rank;
 
-  return { math, rng, sig, fmt, esc, wireChecks, color, fitCanvas, UNITS, unitInfo, unitName, unitShort, unitRank };
+  const path = SITE.path || '/physicsreview';
+  const key = (name) => (SITE.store || 'pr-') + name; // localStorage key for this site
+
+  return { math, rng, sig, fmt, esc, wireChecks, color, fitCanvas, UNITS, unitInfo, unitName, unitShort, unitRank, path, key, site: SITE };
 })();
