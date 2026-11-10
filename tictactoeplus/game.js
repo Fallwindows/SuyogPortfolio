@@ -152,6 +152,7 @@
     else if (log.length && !same(r.entries, log)) scheduleRepair();
   }
   async function act(body) {
+    if (local) return actLocal(body);
     if (!room) return;
     if (!log.length && me !== host) { err = 'Waiting for the person who made this room to pick a side'; return render(); }
     Object.assign(body, { room, seq: log.length, prev: log.length ? log[log.length - 1].h : '0', ts: Math.max(Date.now(), S.lastTs || 0) });
@@ -164,6 +165,32 @@
     S = test; mode = 'piece';
     afterUpdate(); render(); publish();
   }
+
+  // ---------- two players on one computer ----------
+  // Same rules (apply), no network: the seat whose turn it is makes every move.
+  let local = false;
+  const LOCAL = { X: 'local-X', O: 'local-O' };
+  async function actLocal(body) {
+    if (body.type === 'reset') { Object.assign(S, newGame(S)); S.lastTs = Date.now(); mode = 'piece'; return render(); }
+    const test = structuredClone(S);
+    const e = await apply(test, { ...body, ts: Date.now() }, S.owners[S.turn]);
+    if (e) { err = e; return render(); }
+    S = test; mode = 'piece';
+    render();
+  }
+  function startLocal() {
+    const nx = cleanName($('localX').value) || 'Player 1', no = cleanName($('localO').value) || 'Player 2';
+    if (nx === no) { $('localMsg').textContent = 'Give the two players different names.'; return; }
+    try { localStorage.setItem('tttp-local', JSON.stringify([nx, no])); } catch (e) {}
+    leaveRoom();
+    local = true;
+    S = newGame(null);
+    S.owners = { ...LOCAL }; S.names = { X: nx, O: no }; S.lastTs = Date.now();
+    $('share').textContent = '';
+    screen('game'); render();
+  }
+  // Which seat this screen controls: online it's yours; on one computer it's whoever's turn it is.
+  const mySeat = () => (local ? S.turn : seatOf(S, me));
 
   function connect(i = 0) {
     $('net').textContent = 'Connecting to the game relay…';
@@ -234,6 +261,7 @@
     screen('game'); render();
   }
   function leaveRoom() {
+    local = false;
     closeLobby();
     if (pendingJoin) { clearTimeout(pendingJoin.timer); pendingJoin = null; }
     if (topic && client) client.unsubscribe(topic);
@@ -291,7 +319,7 @@
   function screen(name) {
     $('lobbyScreen').hidden = name !== 'lobby';
     $('gameScreen').hidden = name !== 'game';
-    $('lobbyMsg').textContent = '';
+    $('lobbyMsg').textContent = $('localMsg').textContent = '';
   }
 
   // ---------- UI ----------
@@ -306,11 +334,12 @@
       d.textContent = v === 'T' ? '▲' : (v || '');
       d.className = 'c ' + (v || '') + (S.winLine.includes(i) ? ' win' : '') + (S.last === i ? ' last' : '');
     });
-    const mine = seatOf(S, me), seated = { X: !!S.owners.X, O: !!S.owners.O };
+    const mine = mySeat(), seated = { X: !!S.owners.X, O: !!S.owners.O };
     const nm = (s) => (S.names[s] ? `${S.names[s]} (${s})` : s);
     const seats = $('seats'); seats.textContent = '';
     $('nameRow').style.display = mine ? 'none' : '';
-    if (mine) seats.textContent = `You are ${nm(mine)}` + (seated.X && seated.O ? ` vs ${nm(mine === 'X' ? 'O' : 'X')}` : '');
+    if (local) seats.textContent = `${nm('X')} vs ${nm('O')} · same computer`;
+    else if (mine) seats.textContent = `You are ${nm(mine)}` + (seated.X && seated.O ? ` vs ${nm(mine === 'X' ? 'O' : 'X')}` : '');
     else for (const s of ['X', 'O']) {
       const btn = document.createElement('button');
       btn.textContent = seated[s] ? `${nm(s)} joined` : `Play as ${s}`;
@@ -326,13 +355,15 @@
     $('bTri').className = mode === 'tri' ? 'on' : '';
     $('bReset').disabled = !mine;
     let st;
-    if (!online) st = 'Connecting…';
+    if (local) st = S.winner === 'draw' ? 'Draw!' : S.winner ? `${nm(S.winner)} wins! 🎉`
+      : `${nm(S.turn)}'s turn — ` + (hasTri ? '▲ available' : 'place your piece');
+    else if (!online) st = 'Connecting…';
     else if (S.winner === 'draw') st = 'Draw!';
     else if (S.winner) st = (S.winner === mine ? 'You win' : `${nm(S.winner)} wins`) + (S.byTime ? ' on time' : '') + (S.winner === mine ? '! 🎉' : '!');
     else if (!seated.X || !seated.O) st = mine ? 'Waiting for opponent…' : 'Pick a side';
     else if (myTurn) st = hasTri ? 'Your turn — ▲ available' : 'Your turn — place your piece';
     else st = mine ? `${nm(S.turn)}'s turn` : `Spectating — ${nm(S.turn)}'s turn`;
-    if (!room) return;
+    if (!room && !local) return;
     $('status').textContent = err ? `${st} · ${err}` : st;
     err = '';
     renderTimer();
@@ -341,6 +372,7 @@
   let claiming = false;
   function renderTimer() {
     const t = $('timer'), mine = seatOf(S, me);
+    if (local) { t.textContent = ''; return; }
     if (!S.owners.X || !S.owners.O || S.winner || !S.lastTs) { t.textContent = ''; return; }
     const left = Math.max(0, TURN_MS - (Date.now() - S.lastTs));
     const mm = Math.floor(left / 60000), ss = String(Math.floor(left / 1000) % 60).padStart(2, '0');
@@ -359,7 +391,7 @@
     serial(() => act({ type: 'join', seat, name }));
   }
   function clickCell(i) {
-    const mine = seatOf(S, me);
+    const mine = mySeat();
     if (!mine || S.board[i] || S.winner || mine !== S.turn) return;
     const kind = mode;
     serial(() => act({ type: 'move', kind, i }));
@@ -367,16 +399,20 @@
   $('bPiece').onclick = () => { mode = 'piece'; render(); };
   $('bTri').onclick = () => { mode = 'tri'; render(); };
   $('bReset').onclick = () => {
+    if (local) return serial(() => act({ type: 'reset' }));
     if (!seatOf(S, me)) return;
     if (S.winner) return serial(() => act({ type: 'reset' }));
     const pw = prompt('The game is not finished yet. Enter the password to restart:');
     if (pw !== null) serial(() => act({ type: 'reset', pw }));
   };
   $('createBtn').onclick = createLobby;
+  $('localBtn').onclick = startLocal;
+  try { const [a, b] = JSON.parse(localStorage.getItem('tttp-local') || '[]'); $('localX').value = a || ''; $('localO').value = b || ''; } catch (e) {}
   $('lobbyName').addEventListener('keydown', (e) => { if (e.key === 'Enter') createLobby(); });
   $('bLeave').onclick = () => {
     const mine = seatOf(S, me);
-    if (mine && S.owners.X && S.owners.O && !S.winner && !confirm('Leave this game? You can come back with the link.')) return;
+    if (local && !S.winner && S.board.some((v) => v) && !confirm('Leave this game? It will be lost.')) return;
+    if (!local && mine && S.owners.X && S.owners.O && !S.winner && !confirm('Leave this game? You can come back with the link.')) return;
     leaveRoom();
   };
   try { $('name').value = $('lobbyName').value = localStorage.getItem('tttp-name') || ''; } catch (e) {}

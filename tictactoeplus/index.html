@@ -27,7 +27,7 @@ button:disabled{opacity:.4;cursor:default}
 #timer{font-size:14px;color:var(--muted);height:20px;margin-top:-6px;font-variant-numeric:tabular-nums}#timer.low{color:var(--x);font-weight:600}
 .home{align-self:flex-start;font-size:14px;color:var(--muted);text-decoration:none}
 [hidden]{display:none!important}
-#lobbyScreen{width:min(100%,640px);display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));margin-top:4px}
+#lobbyScreen{width:min(100%,940px);display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));margin-top:4px}
 #gameScreen{display:flex;flex-direction:column;align-items:center;width:100%}
 .card{background:var(--cell);border:1px solid var(--line);border-radius:12px;padding:16px}
 .card h2{font-size:18px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
@@ -37,9 +37,9 @@ button:disabled{opacity:.4;cursor:default}
 .lobby{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}.lobby:first-child{border-top:0}
 .lobby .meta{flex:1;min-width:0;display:flex;flex-direction:column}.lobby .meta span{font-size:13px;color:var(--muted)}
 button.primary{background:var(--fg);color:var(--bg);border-color:var(--fg)}
-#lobbyName{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--fg);width:100%;margin:4px 0 10px}
+#lobbyName,.nm{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--fg);width:100%;margin:4px 0 10px}
 .card label{font-size:14px;color:var(--muted)}
-.note{font-size:13px;color:var(--muted);margin:10px 0 0}#lobbyMsg{color:var(--x);font-size:14px;margin:8px 0 0}
+.note{font-size:13px;color:var(--muted);margin:10px 0 0}#lobbyMsg,.msg{color:var(--x);font-size:14px;margin:8px 0 0}
 </style></head><body>
 <a class="home" href="/">← suyogbhandari.com</a>
 <h1>Tic Tac Toe Plus</h1>
@@ -61,6 +61,16 @@ button.primary{background:var(--fg);color:var(--bg);border-color:var(--fg)}
     <button class="primary" id="createBtn" disabled>Create lobby</button>
     <p id="lobbyMsg"></p>
     <p class="note">Anyone else on this page can see your lobby and join it.</p>
+  </div>
+  <div class="card">
+    <h2>Play on this computer</h2>
+    <label for="localX">Player 1 (X)</label>
+    <input id="localX" class="nm" maxlength="20" placeholder="Player 1">
+    <label for="localO">Player 2 (O)</label>
+    <input id="localO" class="nm" maxlength="20" placeholder="Player 2">
+    <button class="primary" id="localBtn">Start game</button>
+    <p id="localMsg" class="msg"></p>
+    <p class="note">Two people take turns on the same screen. No internet needed.</p>
   </div>
 </section>
 <section id="gameScreen" hidden>
